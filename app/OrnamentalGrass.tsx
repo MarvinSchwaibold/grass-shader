@@ -292,7 +292,7 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
   const instanceBuffer = gl.createBuffer();
   if (!vao || !bladeBuffer || !instanceBuffer) throw new Error("Grass allocation failed");
 
-  const segments = 5;
+  const segments = 7;
   const blade = new Float32Array((segments + 1) * 4);
   for (let i=0;i<=segments;i+=1) blade.set([-1,i/segments,1,i/segments], i*4);
 
@@ -463,7 +463,7 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
       : 1 + ((amount - 1) / .65) * 1.35;
     windClock += delta * speed;
     const box = canvas.getBoundingClientRect();
-    const ratio = Math.min(devicePixelRatio || 1,1.65);
+    const ratio = Math.min(devicePixelRatio || 1,2.25);
     const width = Math.max(1,Math.round(box.width*ratio));
     const height = Math.max(1,Math.round(box.height*ratio));
     if (canvas.width!==width || canvas.height!==height) { canvas.width=width; canvas.height=height; }
