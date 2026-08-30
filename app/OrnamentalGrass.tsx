@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 const grassVertex = `#version 300 es
 precision highp float;
@@ -10,6 +10,7 @@ layout(location=2) in vec4 aShape;
 layout(location=3) in vec4 aMotion;
 uniform mat4 uVP;
 uniform float uTime;
+uniform float uWindScale;
 out vec3 vNormal;
 out vec3 vWorld;
 out float vT;
@@ -39,7 +40,7 @@ void main() {
   float wind = 0.14 + gust * 0.37 + clumpBreath * 0.12 + secondFront * 0.08;
   wind += sin(uTime * 3.8 + aMotion.x) * 0.025
     + sin(uTime * 6.4 + aMotion.x * 1.7) * 0.012;
-  wind = clamp(wind, 0.13, 0.72);
+  wind = clamp(wind * uWindScale, 0.05, 1.05);
 
   float curve = t * t;
   float arch = pow(t, 1.38);
@@ -102,25 +103,26 @@ void main() {
   vec3 halfDirection = normalize(sun + view);
   float direct = max(dot(normal, sun), 0.0);
   float translucent = pow(max(dot(-normal, sun), 0.0), 1.2);
-  float specular = pow(max(dot(normal, halfDirection), 0.0), 20.0);
-  float silverEdge = pow(1.0 - abs(dot(normal, view)), 5.0);
+  float specular = pow(max(dot(normal, halfDirection), 0.0), 28.0);
+  float silverEdge = pow(1.0 - abs(dot(normal, view)), 7.0);
 
   // Palette sampled from the target half of the pixel comparison:
   // #192818, #2e3e26, #384a3a, #62734d, #76863d, #a0ae55,
   // #a1ac74, #afb884, #c6d098.
-  vec3 root = vec3(0.0902, 0.1569, 0.0941);
-  vec3 shadowBlade = vec3(0.1490, 0.2471, 0.1608);
-  vec3 coolBlade = vec3(0.2471, 0.3843, 0.2706);
-  vec3 naturalBlade = vec3(0.3608, 0.4980, 0.2667);
-  vec3 freshBlade = vec3(0.5451, 0.6275, 0.3020);
+  vec3 root = vec3(0.0980, 0.1569, 0.0941);
+  vec3 shadowBlade = vec3(0.1804, 0.2431, 0.1490);
+  vec3 coolBlade = vec3(0.2196, 0.2902, 0.2275);
+  vec3 naturalBlade = vec3(0.3843, 0.4510, 0.3020);
+  vec3 freshBlade = vec3(0.4627, 0.5255, 0.2392);
   vec3 oliveBlade = vec3(0.4314, 0.4863, 0.2588);
-  vec3 grayBlade = vec3(0.5412, 0.6000, 0.4784);
-  vec3 strawBlade = vec3(0.6745, 0.6549, 0.4667);
-  vec3 paleBlade = vec3(0.7373, 0.7725, 0.6039);
-  vec3 silver = vec3(0.8510, 0.8706, 0.7569);
+  vec3 grayBlade = vec3(0.6314, 0.6745, 0.4549);
+  vec3 strawBlade = vec3(0.6863, 0.7216, 0.5176);
+  vec3 paleBlade = vec3(0.7765, 0.8157, 0.5961);
+  vec3 silver = vec3(0.8980, 0.9294, 0.8078);
 
   float flattened = step(1.0, vShade);
   float shade = fract(vShade);
+  float strandFlash = smoothstep(0.82, 0.98, fract(shade * 29.73));
   vec3 color = shade < 0.18 ? coolBlade
     : (shade < 0.39 ? naturalBlade
     : (shade < 0.58 ? freshBlade
@@ -133,13 +135,14 @@ void main() {
   color *= mix(0.82, 1.12, fract(shade * 7.31));
   color = mix(root, color, smoothstep(0.05, 0.44, vT));
   color = mix(color, shadowBlade, (1.0 - smoothstep(0.03, 0.26, vT)) * 0.20);
-  float sunWash = smoothstep(0.24, 0.92, direct) * smoothstep(0.42, 1.0, vT);
-  color = mix(color, paleBlade, sunWash * (0.18 + flattened * 0.06));
-  float illumination = 0.70 + direct * 0.55 + translucent * 0.15 + vGust * 0.018;
+  float sunWash = smoothstep(0.48, 0.96, direct) * smoothstep(0.44, 1.0, vT);
+  color = mix(color, paleBlade, sunWash * (0.24 + flattened * 0.04));
+  float illumination = 0.66 + direct * 1.00 + translucent * 0.18 + vGust * 0.016;
   color *= illumination;
-  color += paleBlade * silverEdge * (0.075 + vT * 0.195);
-  color += silver * specular * (0.64 + vGust * 0.26) * smoothstep(0.22, 1.0, vT);
-  color *= mix(1.0, 1.08, smoothstep(0.16, 0.78, vT));
+  color += paleBlade * silverEdge * (0.070 + vT * 0.175);
+  color += silver * strandFlash * direct * 0.26 * smoothstep(0.18, 1.0, vT);
+  color += silver * specular * (0.98 + vGust * 0.34) * smoothstep(0.22, 1.0, vT);
+  color *= mix(1.0, 1.06, smoothstep(0.16, 0.78, vT));
   color = min(color, silver);
   outColor = vec4(color, 1.0);
 }`;
@@ -351,21 +354,21 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       const directionZ = patchZ * .84 + outwardZ * .16;
       const tangled = seeded(index, 19) < (.16 + flattenedMat * .11) ? 1 : 0;
       const direction = Math.atan2(directionZ,directionX)
-        + (seeded(index, 5) - .5) * (flattenedMat > .5 ? .52 : .88)
-        + tangled * (seeded(index, 20) - .5) * 1.28;
+        + (seeded(index, 5) - .5) * (flattenedMat > .5 ? .22 : .40)
+        + tangled * (seeded(index, 20) - .5) * 1.46;
       const strandNoise = .82 + Math.pow(seeded(index, 3), .82) * .42;
       const irregularProfile = Math.max(.72,Math.min(1.12,
         .90 + Math.sin(angle * 2 + clumpPhase) * .12
         + Math.sin(angle * 5 - clumpPhase * .71) * .07
       ));
-      const strayLength = seeded(index, 13) > .93 ? 1.08
-        : seeded(index, 13) < .17 ? .78 : 1;
+      const strayLength = seeded(index, 13) > .93 ? 1.14
+        : seeded(index, 13) < .17 ? .72 : 1;
       const baseBlade = seeded(index, 21) < .36 ? 1 : 0;
       const contactPatch = rootRatio > .48
         && Math.sin(angle * 3 + clumpPhase) > .42 ? 1 : 0;
       const edgeLength = .90 + (1 - rootRatio) * .12
         + Math.max(-.13,Math.min(.13,(rootX * flowX + rootZ * flowZ) / meanRadius * .12));
-      const height = meanRadius * .88 * strandNoise * edgeLength
+      const height = meanRadius * .98 * strandNoise * edgeLength
         * irregularProfile * strayLength * lengthScale * clumpLength
         * (1 - foreground * .10) * (1 - flattenedMat * .47)
         * (1 - contactPatch * .23) * (1 - baseBlade * .19)
@@ -376,7 +379,7 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       instances[offset+1] = rootLift;
       instances[offset+2] = organicCenterZ + rootZ;
       instances[offset+3] = height;
-      instances[offset+4] = (.0045 + seeded(index, 4) * .0065)
+      instances[offset+4] = (.0048 + seeded(index, 4) * .0047)
         * (1 + baseBlade * .10);
       instances[offset+5] = direction;
       instances[offset+6] = direction + Math.PI * .5 + (seeded(index, 6) - .5) * .62;
@@ -430,21 +433,22 @@ function groundGeometry(gl: WebGL2RenderingContext) {
   return { vao, buffer };
 }
 
-function start(canvas: HTMLCanvasElement) {
+function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
   const gl = canvas.getContext("webgl2",{antialias:true,alpha:false,depth:true,powerPreference:"high-performance"});
   if (!gl) return;
   const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
   const groundProgram = program(gl,groundVertex,groundFragment);
-  const requested = matchMedia("(max-width:700px)").matches ? 225000 : 340000;
+  const requested = matchMedia("(max-width:700px)").matches ? 90000 : 132000;
   const grass = grassGeometry(gl,requested);
   const ground = groundGeometry(gl);
   const view = lookAt(camera,[0,.30,-2.35]);
   const grassVP = gl.getUniformLocation(grassProgram,"uVP");
   const groundVP = gl.getUniformLocation(groundProgram,"uVP");
   const time = gl.getUniformLocation(grassProgram,"uTime");
+  const windScale = gl.getUniformLocation(grassProgram,"uWindScale");
   const cameraUniform = gl.getUniformLocation(grassProgram,"uCamera");
-  if (!grassVP || !groundVP || !time || !cameraUniform) throw new Error("Missing uniforms");
+  if (!grassVP || !groundVP || !time || !windScale || !cameraUniform) throw new Error("Missing uniforms");
 
   let frame = 0;
   const started = performance.now();
@@ -468,6 +472,7 @@ function start(canvas: HTMLCanvasElement) {
     gl.useProgram(grassProgram);
     gl.uniformMatrix4fv(grassVP,false,vp);
     gl.uniform1f(time,(now-started)/1000);
+    gl.uniform1f(windScale,windAmount.current);
     gl.uniform3fv(cameraUniform,camera);
     gl.bindVertexArray(grass.vao);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,grass.vertices,grass.count);
@@ -488,20 +493,51 @@ function start(canvas: HTMLCanvasElement) {
 
 export function OrnamentalGrass() {
   const ref = useRef<HTMLCanvasElement>(null);
+  const windAmount = useRef(1);
+  const [wind, setWind] = useState(1);
   useEffect(() => {
     if (!ref.current) return;
-    try { return start(ref.current); }
+    try { return start(ref.current,windAmount); }
     catch (error) { console.error("Unable to start the ornamental grass field",error); }
   },[]);
+  const windFill = `${((wind - .35) / 1.3) * 100}%`;
+  const windLabel = wind < .72 ? "Soft" : wind > 1.28 ? "Strong" : "Natural";
   return (
-    <>
-      <canvas
-        ref={ref}
-        className="grass-canvas"
-        role="img"
-        aria-label="Mounded ornamental grass moving continuously in layered coastal wind"
-      />
-      <div className="grass-fallback" aria-hidden="true" />
-    </>
+    <div className="grass-experience">
+      <figure className="grass-stage">
+        <canvas
+          ref={ref}
+          className="grass-canvas"
+          role="img"
+          aria-label="Mounded ornamental grass moving continuously in layered coastal wind"
+        />
+        <div className="grass-fallback" aria-hidden="true" />
+        <figcaption className="visually-hidden">
+          Dense mounds of fine ornamental grass moving continuously in bright
+          coastal wind.
+        </figcaption>
+      </figure>
+      <label
+        className="wind-control"
+        style={{ "--wind-fill": windFill } as CSSProperties}
+      >
+        <span className="wind-control__label">Wind</span>
+        <input
+          className="wind-control__range"
+          type="range"
+          min="0.35"
+          max="1.65"
+          step="0.01"
+          value={wind}
+          aria-label="Wind intensity"
+          onChange={(event) => {
+            const value = Number(event.currentTarget.value);
+            windAmount.current = value;
+            setWind(value);
+          }}
+        />
+        <output className="wind-control__value">{windLabel}</output>
+      </label>
+    </div>
   );
 }
