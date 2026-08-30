@@ -27,13 +27,13 @@ body {
 
 .grass-experience {
   display: grid;
-  justify-items: stretch;
-  gap: 16px;
+  justify-items: center;
+  gap: 14px;
 }
 
 .grass-stage {
   position: relative;
-  height: min(calc(100svh - 160px), 920px);
+  height: min(calc(100svh - 142px), 920px);
   max-width: calc(100vw - 36px);
   margin: 0;
   aspect-ratio: 832 / 1492;
@@ -48,14 +48,14 @@ body {
   --wind-stretch: 1;
   position: relative;
   display: block;
-  width: 100%;
-  height: 56px;
+  width: 92%;
+  height: 40px;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 14px;
   background: #f1f1ef;
   color: #ffffff;
-  font: 500 16px/1 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  letter-spacing: -.01em;
+  font: 500 12px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  letter-spacing: -.02em;
   transform: translateX(var(--wind-pull)) scaleX(var(--wind-stretch));
   transition: transform 420ms cubic-bezier(.18, 1.55, .34, 1);
   user-select: none;
@@ -71,30 +71,38 @@ body {
   z-index: 1;
   width: var(--wind-fill);
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 14px;
   background: #050505;
 }
 
 .wind-control__filled-label {
   position: absolute;
   top: 50%;
-  left: 24px;
+  left: 16px;
   width: max-content;
   color: #ffffff;
   transform: translateY(-50%);
 }
 
-.wind-control__marker {
+.wind-control__filled-marker,
+.wind-control__empty-marker {
   position: absolute;
   top: 50%;
-  left: clamp(14px, var(--wind-fill), calc(100% - 16px));
-  z-index: 2;
-  width: 6px;
-  height: 28px;
+  width: 4px;
+  height: 18px;
   border-radius: 999px;
+  transform: translateY(-50%);
+}
+
+.wind-control__filled-marker {
+  right: 8px;
   background: #ffffff;
-  transform: translate(-50%, -50%);
-  mix-blend-mode: difference;
+}
+
+.wind-control__empty-marker {
+  left: 8px;
+  z-index: 0;
+  background: #d0d1ce;
 }
 
 .wind-control__label,
@@ -108,13 +116,13 @@ body {
 }
 
 .wind-control__label {
-  left: 24px;
+  left: 16px;
   z-index: 0;
   color: #20211f;
 }
 
 .wind-control__value {
-  right: 24px;
+  right: 16px;
   color: #777972;
   font-weight: 450;
   font-variant-numeric: tabular-nums;
@@ -133,11 +141,6 @@ body {
   cursor: ew-resize;
   touch-action: none;
   background: transparent;
-}
-
-.wind-control.is-keyboard:has(.wind-control__range:focus-visible) {
-  outline: 2px solid #868a80;
-  outline-offset: 3px;
 }
 
 .grass-canvas {
@@ -174,6 +177,6 @@ body {
   .grass-stage {
     width: 100%;
     height: auto;
-    max-height: calc(100svh - 104px);
+    max-height: calc(100svh - 86px);
   }
 }

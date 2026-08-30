@@ -507,13 +507,12 @@ export function OrnamentalGrass() {
   const [windStrength, setWindStrength] = useState(50);
   const [elasticPull, setElasticPull] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [isKeyboardFocus, setIsKeyboardFocus] = useState(false);
   useEffect(() => {
     if (!ref.current) return;
     try { return start(ref.current,windAmount); }
     catch (error) { console.error("Unable to start the ornamental grass field",error); }
   },[]);
-  const windFill = `${windStrength}%`;
+  const windFill = `${windStrength < 6 ? 0 : windStrength}%`;
   const setStrength = (strength: number) => {
     const next = Math.max(0,Math.min(100,strength));
     windAmount.current = .35 + (next / 100) * 1.3;
@@ -535,7 +534,7 @@ export function OrnamentalGrass() {
         </figcaption>
       </figure>
       <label
-        className={`wind-control${isDragging ? " is-dragging" : ""}${isKeyboardFocus ? " is-keyboard" : ""}`}
+        className={`wind-control${isDragging ? " is-dragging" : ""}`}
         style={{
           "--wind-fill": windFill,
           "--wind-pull": `${elasticPull * .44}px`,
@@ -545,8 +544,9 @@ export function OrnamentalGrass() {
       >
         <span className="wind-control__progress" aria-hidden="true">
           <span className="wind-control__filled-label" aria-hidden="true">Wind</span>
+          <span className="wind-control__filled-marker" />
         </span>
-        <span className="wind-control__marker" aria-hidden="true" />
+        <span className="wind-control__empty-marker" aria-hidden="true" />
         <span className="wind-control__label" aria-hidden="true">Wind</span>
         <output className="wind-control__value">{Math.round(windStrength)}</output>
         <input
@@ -574,7 +574,6 @@ export function OrnamentalGrass() {
             };
             input.focus();
             input.setPointerCapture(event.pointerId);
-            setIsKeyboardFocus(false);
             setIsDragging(true);
             setElasticPull(0);
             setStrength(((event.clientX - box.left) / box.width) * 100);
@@ -610,13 +609,6 @@ export function OrnamentalGrass() {
             setIsDragging(false);
             setElasticPull(0);
           }}
-          onFocus={(event) => {
-            if (event.currentTarget.matches(":focus-visible")) {
-              setIsKeyboardFocus(true);
-            }
-          }}
-          onBlur={() => setIsKeyboardFocus(false)}
-          onKeyDown={() => setIsKeyboardFocus(true)}
         />
       </label>
     </div>
