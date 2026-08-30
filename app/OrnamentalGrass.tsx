@@ -503,14 +503,22 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
 export function OrnamentalGrass() {
   const ref = useRef<HTMLCanvasElement>(null);
   const windAmount = useRef(1);
-  const [wind, setWind] = useState(1);
+  const drag = useRef({ active: false, lastX: 0, lastTime: 0, velocity: 0 });
+  const [windStrength, setWindStrength] = useState(50);
+  const [elasticPull, setElasticPull] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isKeyboardFocus, setIsKeyboardFocus] = useState(false);
   useEffect(() => {
     if (!ref.current) return;
     try { return start(ref.current,windAmount); }
     catch (error) { console.error("Unable to start the ornamental grass field",error); }
   },[]);
-  const windFill = `${((wind - .35) / 1.3) * 100}%`;
-  const windLabel = wind < .72 ? "Soft" : wind > 1.28 ? "Strong" : "Natural";
+  const windFill = `${windStrength}%`;
+  const setStrength = (strength: number) => {
+    const next = Math.max(0,Math.min(100,strength));
+    windAmount.current = .35 + (next / 100) * 1.3;
+    setWindStrength(next);
+  };
   return (
     <div className="grass-experience">
       <figure className="grass-stage">
@@ -527,25 +535,89 @@ export function OrnamentalGrass() {
         </figcaption>
       </figure>
       <label
-        className="wind-control"
-        style={{ "--wind-fill": windFill } as CSSProperties}
+        className={`wind-control${isDragging ? " is-dragging" : ""}${isKeyboardFocus ? " is-keyboard" : ""}`}
+        style={{
+          "--wind-fill": windFill,
+          "--wind-pull": `${elasticPull * .44}px`,
+          "--wind-stretch": 1 + Math.abs(elasticPull) * .0015,
+          transformOrigin: elasticPull < 0 ? "right center" : "left center",
+        } as CSSProperties}
       >
-        <span className="wind-control__label">Wind</span>
+        <span className="wind-control__progress" aria-hidden="true">
+          <span className="wind-control__filled-label" aria-hidden="true">Wind</span>
+        </span>
+        <span className="wind-control__marker" aria-hidden="true" />
+        <span className="wind-control__label" aria-hidden="true">Wind</span>
+        <output className="wind-control__value">{Math.round(windStrength)}</output>
         <input
           className="wind-control__range"
           type="range"
-          min="0.35"
-          max="1.65"
-          step="0.01"
-          value={wind}
-          aria-label="Wind speed"
+          min="0"
+          max="100"
+          step="1"
+          value={windStrength}
+          aria-label="Wind strength"
+          aria-valuetext={`${Math.round(windStrength)} out of 100`}
           onChange={(event) => {
-            const value = Number(event.currentTarget.value);
-            windAmount.current = value;
-            setWind(value);
+            setStrength(Number(event.currentTarget.value));
           }}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            const input = event.currentTarget;
+            const box = input.getBoundingClientRect();
+            const now = performance.now();
+            drag.current = {
+              active: true,
+              lastX: event.clientX,
+              lastTime: now,
+              velocity: 0,
+            };
+            input.focus();
+            input.setPointerCapture(event.pointerId);
+            setIsKeyboardFocus(false);
+            setIsDragging(true);
+            setElasticPull(0);
+            setStrength(((event.clientX - box.left) / box.width) * 100);
+          }}
+          onPointerMove={(event) => {
+            if (!drag.current.active) return;
+            const box = event.currentTarget.getBoundingClientRect();
+            const now = performance.now();
+            const elapsed = Math.max(1,now - drag.current.lastTime);
+            const velocity = (event.clientX - drag.current.lastX) / elapsed;
+            const raw = (event.clientX - box.left) / box.width;
+            const excess = raw < 0 ? raw * box.width
+              : raw > 1 ? (raw - 1) * box.width : 0;
+            const directedVelocity = (raw <= 0 && velocity < 0)
+              || (raw >= 1 && velocity > 0) ? velocity * 3.2 : 0;
+            const pull = Math.max(-12,Math.min(12,excess * .18 + directedVelocity));
+            drag.current.lastX = event.clientX;
+            drag.current.lastTime = now;
+            drag.current.velocity = velocity;
+            setElasticPull(pull);
+            setStrength(raw * 100);
+          }}
+          onPointerUp={(event) => {
+            drag.current.active = false;
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+            setIsDragging(false);
+            setElasticPull(0);
+          }}
+          onPointerCancel={() => {
+            drag.current.active = false;
+            setIsDragging(false);
+            setElasticPull(0);
+          }}
+          onFocus={(event) => {
+            if (event.currentTarget.matches(":focus-visible")) {
+              setIsKeyboardFocus(true);
+            }
+          }}
+          onBlur={() => setIsKeyboardFocus(false)}
+          onKeyDown={() => setIsKeyboardFocus(true)}
         />
-        <output className="wind-control__value">{windLabel}</output>
       </label>
     </div>
   );
