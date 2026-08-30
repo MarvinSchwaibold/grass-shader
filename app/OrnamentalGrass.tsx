@@ -48,8 +48,8 @@ void main() {
   float lean = aMotion.w;
   vec2 bendDirection = normalize(radial * (0.96 - wind * 0.72)
     + windDirection * (0.22 + wind * 1.10));
-  float curlAngle = sin(aMotion.x * 1.37) * 0.48 * arch
-    + sin(aMotion.x * 0.71) * 0.14 * tip;
+  float curlAngle = sin(aMotion.x * 1.37) * 0.22 * arch
+    + sin(aMotion.x * 0.71) * 0.06 * tip;
   float curlCos = cos(curlAngle);
   float curlSin = sin(curlAngle);
   vec2 curveDirection = vec2(
@@ -102,36 +102,44 @@ void main() {
   vec3 halfDirection = normalize(sun + view);
   float direct = max(dot(normal, sun), 0.0);
   float translucent = pow(max(dot(-normal, sun), 0.0), 1.2);
-  float specular = pow(max(dot(normal, halfDirection), 0.0), 24.0);
-  float silverEdge = pow(1.0 - abs(dot(normal, view)), 6.4);
+  float specular = pow(max(dot(normal, halfDirection), 0.0), 20.0);
+  float silverEdge = pow(1.0 - abs(dot(normal, view)), 5.0);
 
   // Palette sampled from the target half of the pixel comparison:
   // #192818, #2e3e26, #384a3a, #62734d, #76863d, #a0ae55,
   // #a1ac74, #afb884, #c6d098.
-  vec3 root = vec3(0.0980, 0.1569, 0.0941);
-  vec3 shadowBlade = vec3(0.1843, 0.2588, 0.1490);
-  vec3 coolBlade = vec3(0.2510, 0.3569, 0.2392);
-  vec3 oliveBlade = vec3(0.4196, 0.5020, 0.2471);
-  vec3 dullBlade = vec3(0.5176, 0.5765, 0.3843);
-  vec3 dryBlade = vec3(0.6314, 0.6588, 0.3569);
-  vec3 grayBlade = vec3(0.5608, 0.6039, 0.5137);
-  vec3 paleBlade = vec3(0.6824, 0.7216, 0.5176);
-  vec3 silver = vec3(0.7765, 0.8157, 0.5961);
+  vec3 root = vec3(0.0902, 0.1569, 0.0941);
+  vec3 shadowBlade = vec3(0.1490, 0.2471, 0.1608);
+  vec3 coolBlade = vec3(0.2471, 0.3843, 0.2706);
+  vec3 naturalBlade = vec3(0.3608, 0.4980, 0.2667);
+  vec3 freshBlade = vec3(0.5451, 0.6275, 0.3020);
+  vec3 oliveBlade = vec3(0.4314, 0.4863, 0.2588);
+  vec3 grayBlade = vec3(0.5412, 0.6000, 0.4784);
+  vec3 strawBlade = vec3(0.6745, 0.6549, 0.4667);
+  vec3 paleBlade = vec3(0.7373, 0.7725, 0.6039);
+  vec3 silver = vec3(0.8510, 0.8706, 0.7569);
 
-  float dryFamily = smoothstep(0.76, 0.93, vShade);
-  vec3 color = vShade < 0.32 ? coolBlade
-    : (vShade < 0.72 ? oliveBlade : dullBlade);
-  vec3 weathered = fract(vShade * 13.71) < 0.48 ? dryBlade : grayBlade;
-  color = mix(color, weathered, dryFamily * 0.78);
-  color *= mix(0.72, 1.18, fract(vShade * 5.71));
-  color = mix(root, color, smoothstep(0.06, 0.42, vT));
-  color = mix(color, shadowBlade, (1.0 - smoothstep(0.03, 0.28, vT)) * 0.22);
-  color = mix(color, paleBlade, smoothstep(0.58, 1.0, vT) * dryFamily * 0.16);
-  float illumination = 0.78 + direct * 0.58 + translucent * 0.13 + vGust * 0.020;
+  float flattened = step(1.0, vShade);
+  float shade = fract(vShade);
+  vec3 color = shade < 0.18 ? coolBlade
+    : (shade < 0.39 ? naturalBlade
+    : (shade < 0.58 ? freshBlade
+    : (shade < 0.75 ? oliveBlade
+    : (shade < 0.89 ? grayBlade : strawBlade))));
+  float dryFamily = smoothstep(0.72, 0.96, shade);
+  vec3 weathered = fract(shade * 13.71) < 0.52 ? strawBlade : grayBlade;
+  color = mix(color, weathered, dryFamily * 0.62);
+  color = mix(color, mix(grayBlade, strawBlade, 0.58), flattened * (0.20 + dryFamily * 0.22));
+  color *= mix(0.82, 1.12, fract(shade * 7.31));
+  color = mix(root, color, smoothstep(0.05, 0.44, vT));
+  color = mix(color, shadowBlade, (1.0 - smoothstep(0.03, 0.26, vT)) * 0.20);
+  float sunWash = smoothstep(0.24, 0.92, direct) * smoothstep(0.42, 1.0, vT);
+  color = mix(color, paleBlade, sunWash * (0.18 + flattened * 0.06));
+  float illumination = 0.70 + direct * 0.55 + translucent * 0.15 + vGust * 0.018;
   color *= illumination;
-  color += paleBlade * silverEdge * (0.018 + vT * 0.055);
-  color += silver * specular * (0.42 + vGust * 0.18) * smoothstep(0.30, 1.0, vT);
-  color *= mix(1.0, 1.07, smoothstep(0.18, 0.80, vT));
+  color += paleBlade * silverEdge * (0.075 + vT * 0.195);
+  color += silver * specular * (0.64 + vGust * 0.26) * smoothstep(0.22, 1.0, vT);
+  color *= mix(1.0, 1.08, smoothstep(0.16, 0.78, vT));
   color = min(color, silver);
   outColor = vec4(color, 1.0);
 }`;
@@ -281,7 +289,7 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
   const instanceBuffer = gl.createBuffer();
   if (!vao || !bladeBuffer || !instanceBuffer) throw new Error("Grass allocation failed");
 
-  const segments = 6;
+  const segments = 5;
   const blade = new Float32Array((segments + 1) * 4);
   for (let i=0;i<=segments;i+=1) blade.set([-1,i/segments,1,i/segments], i*4);
 
@@ -331,17 +339,20 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       const outwardLength = Math.hypot(rootX,rootZ) || 1;
       const outwardX = rootX / outwardLength;
       const outwardZ = rootZ / outwardLength;
+      const flattenedMat = density < .405 ? 1 : 0;
+      const broadFlow = flattenedMat > .5 ? .24 : .68;
+      const fineFlow = flattenedMat > .5 ? .10 : .24;
       const patchAngle = flow
-        + Math.sin(angle * 2 + clumpPhase) * 1.05
-        + Math.sin(angle * 5 - clumpPhase * .72) * .46;
+        + Math.sin(angle * 2 + clumpPhase) * broadFlow
+        + Math.sin(angle * 5 - clumpPhase * .72) * fineFlow;
       const patchX = Math.cos(patchAngle);
       const patchZ = Math.sin(patchAngle);
       const directionX = patchX * .84 + outwardX * .16;
       const directionZ = patchZ * .84 + outwardZ * .16;
-      const tangled = seeded(index, 19) < .23 ? 1 : 0;
+      const tangled = seeded(index, 19) < (.16 + flattenedMat * .11) ? 1 : 0;
       const direction = Math.atan2(directionZ,directionX)
-        + (seeded(index, 5) - .5) * 1.46
-        + tangled * (seeded(index, 20) - .5) * 2.35;
+        + (seeded(index, 5) - .5) * (flattenedMat > .5 ? .52 : .88)
+        + tangled * (seeded(index, 20) - .5) * 1.28;
       const strandNoise = .82 + Math.pow(seeded(index, 3), .82) * .42;
       const irregularProfile = Math.max(.72,Math.min(1.12,
         .90 + Math.sin(angle * 2 + clumpPhase) * .12
@@ -354,7 +365,6 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
         && Math.sin(angle * 3 + clumpPhase) > .42 ? 1 : 0;
       const edgeLength = .90 + (1 - rootRatio) * .12
         + Math.max(-.13,Math.min(.13,(rootX * flowX + rootZ * flowZ) / meanRadius * .12));
-      const flattenedMat = density < .405 ? 1 : 0;
       const height = meanRadius * .88 * strandNoise * edgeLength
         * irregularProfile * strayLength * lengthScale * clumpLength
         * (1 - foreground * .10) * (1 - flattenedMat * .47)
@@ -366,23 +376,24 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       instances[offset+1] = rootLift;
       instances[offset+2] = organicCenterZ + rootZ;
       instances[offset+3] = height;
-      instances[offset+4] = (.016 + seeded(index, 4) * .016)
-        * (1 + baseBlade * .13);
+      instances[offset+4] = (.0045 + seeded(index, 4) * .0065)
+        * (1 + baseBlade * .10);
       instances[offset+5] = direction;
       instances[offset+6] = direction + Math.PI * .5 + (seeded(index, 6) - .5) * .62;
       instances[offset+7] = seeded(index, 7) * Math.PI * 2;
       const family = seeded(index, 11);
-      instances[offset+8] = Math.max(.06,Math.min(.98,
-        tone * .48 + seeded(index, 8) * .44
-        + (family > .87 ? .24 : 0) - (family < .14 ? .17 : 0)
+      const bladeShade = Math.max(.06,Math.min(.98,
+        tone * .68 + seeded(index, 8) * .28 + foreground * .08
+        + (family > .86 ? .23 : 0) - (family < .11 ? .13 : 0)
       ));
+      instances[offset+8] = bladeShade + flattenedMat;
       instances[offset+9] = clumpPhase;
       instances[offset+10] = Math.max(.34,Math.min(.98,
-        .20 + collapse * .43 + foreground * .03 + rootRatio * .17
+        .21 + collapse * .36 + foreground * .03 + rootRatio * .13
         + clumpCollapseBias
         + Math.sin(angle * 2 + clumpPhase) * .075
         + Math.sin(angle * 5 - clumpPhase) * .035
-        + flattenedMat * .34 + contactPatch * .20 - baseBlade * .07
+        + flattenedMat * .46 + contactPatch * .16 - baseBlade * .07
         + tangled * .07 + (seeded(index, 9) - .5) * .32
       ));
       index += 1;
@@ -425,7 +436,7 @@ function start(canvas: HTMLCanvasElement) {
   const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
   const groundProgram = program(gl,groundVertex,groundFragment);
-  const requested = matchMedia("(max-width:700px)").matches ? 138000 : 210000;
+  const requested = matchMedia("(max-width:700px)").matches ? 225000 : 340000;
   const grass = grassGeometry(gl,requested);
   const ground = groundGeometry(gl);
   const view = lookAt(camera,[0,.30,-2.35]);
