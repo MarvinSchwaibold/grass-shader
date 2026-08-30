@@ -47,8 +47,8 @@ void main() {
   float tip = pow(t, 2.15);
   float taper = pow(max(1.0 - t, 0.0), 0.66);
   float lean = aMotion.w;
-  vec2 bendDirection = normalize(radial * (0.96 - wind * 0.72)
-    + windDirection * (0.22 + wind * 1.10));
+  vec2 bendDirection = normalize(radial * (1.08 - wind * 0.48)
+    + windDirection * (0.10 + wind * 0.70));
   float curlAngle = sin(aMotion.x * 1.37) * 0.22 * arch
     + sin(aMotion.x * 0.71) * 0.06 * tip;
   float curlCos = cos(curlAngle);
@@ -61,7 +61,7 @@ void main() {
   float ripple = sin(aMotion.x + uTime * 2.25 + t * 2.7) * 0.018 * height;
 
   float naturalReach = height * (0.065 * t + lean * 0.80 * arch);
-  float gustReach = height * wind * (0.22 + gust * 0.17) * curve;
+  float gustReach = height * wind * (0.18 + gust * 0.13) * curve;
   vec3 world = aRoot;
   world.xz += curveDirection * naturalReach;
   world.xz += windDirection * gustReach;
@@ -112,36 +112,36 @@ void main() {
   vec3 root = vec3(0.0980, 0.1569, 0.0941);
   vec3 shadowBlade = vec3(0.1804, 0.2431, 0.1490);
   vec3 coolBlade = vec3(0.2196, 0.2902, 0.2275);
-  vec3 naturalBlade = vec3(0.3843, 0.4510, 0.3020);
-  vec3 freshBlade = vec3(0.4627, 0.5255, 0.2392);
-  vec3 oliveBlade = vec3(0.4314, 0.4863, 0.2588);
-  vec3 grayBlade = vec3(0.6314, 0.6745, 0.4549);
-  vec3 strawBlade = vec3(0.6863, 0.7216, 0.5176);
-  vec3 paleBlade = vec3(0.7765, 0.8157, 0.5961);
-  vec3 silver = vec3(0.8980, 0.9294, 0.8078);
+  vec3 naturalBlade = vec3(0.4314, 0.5216, 0.2588);
+  vec3 freshBlade = vec3(0.5765, 0.6549, 0.2510);
+  vec3 oliveBlade = vec3(0.4784, 0.5373, 0.2627);
+  vec3 grayBlade = vec3(0.6863, 0.7412, 0.5569);
+  vec3 strawBlade = vec3(0.7608, 0.7529, 0.5216);
+  vec3 paleBlade = vec3(0.8549, 0.8941, 0.7137);
+  vec3 silver = vec3(0.9608, 0.9765, 0.9098);
 
   float flattened = step(1.0, vShade);
   float shade = fract(vShade);
-  float strandFlash = smoothstep(0.82, 0.98, fract(shade * 29.73));
-  vec3 color = shade < 0.18 ? coolBlade
-    : (shade < 0.39 ? naturalBlade
-    : (shade < 0.58 ? freshBlade
-    : (shade < 0.75 ? oliveBlade
-    : (shade < 0.89 ? grayBlade : strawBlade))));
-  float dryFamily = smoothstep(0.72, 0.96, shade);
+  float strandFlash = smoothstep(0.72, 0.97, fract(shade * 29.73));
+  vec3 color = shade < 0.14 ? coolBlade
+    : (shade < 0.32 ? naturalBlade
+    : (shade < 0.52 ? freshBlade
+    : (shade < 0.68 ? oliveBlade
+    : (shade < 0.84 ? grayBlade : strawBlade))));
+  float dryFamily = smoothstep(0.60, 0.93, shade);
   vec3 weathered = fract(shade * 13.71) < 0.52 ? strawBlade : grayBlade;
-  color = mix(color, weathered, dryFamily * 0.62);
-  color = mix(color, mix(grayBlade, strawBlade, 0.58), flattened * (0.20 + dryFamily * 0.22));
+  color = mix(color, weathered, dryFamily * 0.74);
+  color = mix(color, mix(grayBlade, strawBlade, 0.58), flattened * (0.29 + dryFamily * 0.25));
   color *= mix(0.82, 1.12, fract(shade * 7.31));
   color = mix(root, color, smoothstep(0.05, 0.44, vT));
   color = mix(color, shadowBlade, (1.0 - smoothstep(0.03, 0.26, vT)) * 0.20);
   float sunWash = smoothstep(0.48, 0.96, direct) * smoothstep(0.44, 1.0, vT);
-  color = mix(color, paleBlade, sunWash * (0.24 + flattened * 0.04));
-  float illumination = 0.66 + direct * 1.00 + translucent * 0.18 + vGust * 0.016;
+  color = mix(color, paleBlade, sunWash * (0.25 + flattened * 0.06));
+  float illumination = 0.70 + direct * 0.72 + translucent * 0.18 + vGust * 0.016;
   color *= illumination;
-  color += paleBlade * silverEdge * (0.070 + vT * 0.175);
-  color += silver * strandFlash * direct * 0.26 * smoothstep(0.18, 1.0, vT);
-  color += silver * specular * (0.98 + vGust * 0.34) * smoothstep(0.22, 1.0, vT);
+  color += paleBlade * silverEdge * (0.080 + vT * 0.185);
+  color += silver * strandFlash * direct * 0.48 * smoothstep(0.16, 1.0, vT);
+  color += silver * specular * (1.10 + vGust * 0.36) * smoothstep(0.20, 1.0, vT);
   color *= mix(1.0, 1.06, smoothstep(0.16, 0.78, vT));
   color = min(color, silver);
   outColor = vec4(color, 1.0);
@@ -200,10 +200,10 @@ const clumps: Clump[] = [
   [-5.37,-13.62,1.12,.91,-.28,.76,.74,.81,.42,1.04],[-3.23,-14.08,1.27,.86,.36,.32,.67,.95,.68,.91],[-.82,-13.42,1.10,1.02,-.18,.98,.83,.89,.36,.98],[1.42,-13.93,1.31,.88,.30,.62,.70,.96,.59,1.05],[3.74,-13.36,1.08,1.00,-.42,.84,.78,.86,.76,.92],[5.62,-14.02,.98,.86,.22,.48,.64,.79,.48,1.02],
   [-4.73,-11.05,1.38,.99,.31,.88,.70,.94,.62,1.03],[-2.11,-11.52,1.17,1.12,-.36,.42,.84,.82,.34,.94],[.26,-10.87,1.44,.96,.14,1.02,.76,.97,.71,1.08],[2.88,-11.41,1.25,1.13,-.24,.60,.69,.88,.49,.96],[5.12,-10.71,1.33,.94,.39,.78,.81,.91,.66,1.01],
   [-5.36,-8.54,1.42,1.14,-.21,.36,.78,.86,.45,1.06],[-2.73,-8.97,1.51,1.02,.29,.91,.66,.96,.72,.98],[-.08,-8.24,1.31,1.24,-.35,.56,.88,.87,.30,1.00],[2.43,-8.82,1.55,1.07,.20,1.05,.74,.95,.61,1.10],[5.07,-8.18,1.41,1.18,-.32,.69,.82,.89,.51,.94],
-  [-4.65,-5.83,1.68,1.22,.27,.82,.70,.93,.69,1.05],[-1.63,-6.31,1.48,1.36,-.41,.40,.86,.84,.38,.96],[1.13,-5.48,1.72,1.19,.18,.98,.79,.98,.58,1.12],[4.24,-6.02,1.59,1.31,-.28,.58,.73,.91,.47,1.00],
-  [-5.20,-2.64,1.74,1.43,-.34,.36,.85,.87,.40,1.03],[-2.01,-3.17,1.92,1.31,.24,.86,.72,.97,.71,1.12],[1.19,-2.32,1.66,1.55,-.26,.52,.91,.90,.31,.98],[4.34,-3.03,1.88,1.34,.35,1.00,.78,.95,.60,1.08],
-  [-4.53,.66,2.04,1.42,.20,.78,.76,.92,.64,1.08],[-.98,-.15,2.22,1.55,-.38,.39,.92,.98,.35,1.02],[2.75,.74,2.10,1.46,.29,.96,.82,.94,.57,1.12],[5.76,-.04,1.48,1.34,-.24,.55,.70,.78,.48,.95],
-  [-5.02,4.16,2.13,1.63,-.29,.32,.90,.88,.43,1.04],[-1.32,3.48,2.40,1.71,.24,.84,.80,.98,.68,1.13],[2.58,4.43,2.24,1.58,-.36,.50,.94,.92,.32,1.00],[6.05,3.71,1.63,1.48,.31,1.02,.77,.80,.56,1.06],
+  [-4.65,-5.83,1.68,1.22,.27,.82,.42,.93,.69,1.10],[-1.63,-6.31,1.48,1.36,-.41,.40,.86,.84,.38,.96],[1.13,-5.48,1.72,1.19,.18,.98,.52,.98,.58,1.16],[4.24,-6.02,1.59,1.31,-.28,.58,.73,.91,.47,1.00],
+  [-5.20,-2.64,1.74,1.43,-.34,.36,.85,.87,.40,1.03],[-2.01,-3.17,2.02,1.42,.24,.86,.46,.97,.71,1.18],[1.19,-2.32,1.66,1.55,-.26,.52,.91,.90,.31,.98],[4.34,-3.03,1.88,1.34,.35,1.00,.78,.95,.60,1.08],
+  [-4.53,.66,2.04,1.42,.20,.78,.58,.92,.64,1.10],[-.98,-.15,2.42,1.74,-.38,.39,.34,.98,.62,1.20],[2.75,.74,2.10,1.46,.29,.96,.66,.94,.57,1.14],[5.76,-.04,1.48,1.34,-.24,.55,.70,.78,.48,.95],
+  [-5.02,4.16,2.13,1.63,-.29,.32,.90,.88,.43,1.04],[-1.32,3.48,2.55,1.85,.24,.84,.46,.98,.68,1.18],[2.58,4.43,2.24,1.58,-.36,.50,.94,.92,.32,1.00],[6.05,3.71,1.63,1.48,.31,1.02,.77,.80,.56,1.06],
   [-4.02,7.79,2.62,1.82,.26,.72,.94,.90,.54,1.05],[.31,7.18,2.72,1.93,-.33,.34,.88,.99,.39,1.10],[4.62,7.92,2.56,1.74,.20,.91,.96,.93,.65,1.00],
 
   [-1.95,-12.52,2.12,.30,-.22,.22,.98,.22,.49,.67],[3.45,-9.78,2.42,.34,.18,.91,.99,.26,.62,.71],[-3.18,-7.14,2.28,.36,-.31,.40,.97,.24,.44,.72],[1.86,-4.39,2.62,.38,.27,.78,.99,.28,.68,.66],[-2.44,-.94,2.75,.42,-.24,.28,.98,.30,.52,.70],[2.04,2.37,3.02,.45,.20,.88,.99,.33,.72,.64],[-1.06,6.02,3.32,.52,-.18,.38,.99,.34,.57,.68],
@@ -297,7 +297,7 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
   for (let i=0;i<=segments;i+=1) blade.set([-1,i/segments,1,i/segments], i*4);
 
   const weight = (clump: Clump) => clump[2] * clump[3] * clump[7]
-    * (clump[7] < .405 ? 2.00 : 1);
+    * (clump[7] < .405 ? .82 : 1);
   const totalWeight = clumps.reduce((sum, clump) => sum + weight(clump), 0);
   const counts = clumps.map((clump) => Math.floor(requested * weight(clump) / totalWeight));
   let count = counts.reduce((sum, value) => sum + value, 0);
@@ -313,11 +313,12 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
     const foreground = Math.max(0, Math.min(1, (centerZ + 2) / 10));
     const rotationCos = Math.cos(rotation);
     const rotationSin = Math.sin(rotation);
-    const flowX = Math.cos(flow);
-    const flowZ = Math.sin(flow);
+    const localFlow = flow + (seeded(clumpIndex, 22) - .5) * 2.35;
+    const flowX = Math.cos(localFlow);
+    const flowZ = Math.sin(localFlow);
     const meanRadius = Math.sqrt(radiusX * radiusZ);
-    const clumpLength = .73 + seeded(clumpIndex, 15) * .39;
-    const clumpCollapseBias = (seeded(clumpIndex, 16) - .5) * .34;
+    const clumpLength = .70 + seeded(clumpIndex, 15) * .62;
+    const clumpCollapseBias = (seeded(clumpIndex, 16) - .5) * .52;
     const organicCenterX = centerX + (seeded(clumpIndex, 17) - .5) * .42;
     const organicCenterZ = centerZ + (seeded(clumpIndex, 18) - .5) * .54;
     for (let bladeIndex=0;bladeIndex<counts[clumpIndex];bladeIndex+=1) {
@@ -343,19 +344,19 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       const outwardX = rootX / outwardLength;
       const outwardZ = rootZ / outwardLength;
       const flattenedMat = density < .405 ? 1 : 0;
-      const broadFlow = flattenedMat > .5 ? .24 : .68;
-      const fineFlow = flattenedMat > .5 ? .10 : .24;
-      const patchAngle = flow
+      const broadFlow = flattenedMat > .5 ? .40 : .92;
+      const fineFlow = flattenedMat > .5 ? .18 : .36;
+      const patchAngle = localFlow
         + Math.sin(angle * 2 + clumpPhase) * broadFlow
         + Math.sin(angle * 5 - clumpPhase * .72) * fineFlow;
       const patchX = Math.cos(patchAngle);
       const patchZ = Math.sin(patchAngle);
       const directionX = patchX * .84 + outwardX * .16;
       const directionZ = patchZ * .84 + outwardZ * .16;
-      const tangled = seeded(index, 19) < (.16 + flattenedMat * .11) ? 1 : 0;
+      const tangled = seeded(index, 19) < (.27 + flattenedMat * .12) ? 1 : 0;
       const direction = Math.atan2(directionZ,directionX)
-        + (seeded(index, 5) - .5) * (flattenedMat > .5 ? .22 : .40)
-        + tangled * (seeded(index, 20) - .5) * 1.46;
+        + (seeded(index, 5) - .5) * (flattenedMat > .5 ? .38 : .64)
+        + tangled * (seeded(index, 20) - .5) * 1.82;
       const strandNoise = .82 + Math.pow(seeded(index, 3), .82) * .42;
       const irregularProfile = Math.max(.72,Math.min(1.12,
         .90 + Math.sin(angle * 2 + clumpPhase) * .12
@@ -387,12 +388,12 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       const family = seeded(index, 11);
       const bladeShade = Math.max(.06,Math.min(.98,
         tone * .68 + seeded(index, 8) * .28 + foreground * .08
-        + (family > .86 ? .23 : 0) - (family < .11 ? .13 : 0)
+        + (family > .72 ? .24 : 0) - (family < .11 ? .13 : 0)
       ));
       instances[offset+8] = bladeShade + flattenedMat;
       instances[offset+9] = clumpPhase;
-      instances[offset+10] = Math.max(.34,Math.min(.98,
-        .21 + collapse * .36 + foreground * .03 + rootRatio * .13
+      instances[offset+10] = Math.max(.26,Math.min(.98,
+        .14 + collapse * .48 + foreground * .03 + rootRatio * .13
         + clumpCollapseBias
         + Math.sin(angle * 2 + clumpPhase) * .075
         + Math.sin(angle * 5 - clumpPhase) * .035
@@ -451,8 +452,16 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
   if (!grassVP || !groundVP || !time || !windScale || !cameraUniform) throw new Error("Missing uniforms");
 
   let frame = 0;
-  const started = performance.now();
+  let windClock = 0;
+  let previousFrame = performance.now();
   const render = (now: number) => {
+    const delta = Math.min(Math.max((now - previousFrame) / 1000,0),.05);
+    previousFrame = now;
+    const amount = windAmount.current;
+    const speed = amount <= 1
+      ? .45 + ((amount - .35) / .65) * .55
+      : 1 + ((amount - 1) / .65) * 1.35;
+    windClock += delta * speed;
     const box = canvas.getBoundingClientRect();
     const ratio = Math.min(devicePixelRatio || 1,1.65);
     const width = Math.max(1,Math.round(box.width*ratio));
@@ -471,8 +480,8 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     gl.drawArrays(gl.TRIANGLES,0,6);
     gl.useProgram(grassProgram);
     gl.uniformMatrix4fv(grassVP,false,vp);
-    gl.uniform1f(time,(now-started)/1000);
-    gl.uniform1f(windScale,windAmount.current);
+    gl.uniform1f(time,windClock);
+    gl.uniform1f(windScale,amount);
     gl.uniform3fv(cameraUniform,camera);
     gl.bindVertexArray(grass.vao);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,grass.vertices,grass.count);
@@ -529,7 +538,7 @@ export function OrnamentalGrass() {
           max="1.65"
           step="0.01"
           value={wind}
-          aria-label="Wind intensity"
+          aria-label="Wind speed"
           onChange={(event) => {
             const value = Number(event.currentTarget.value);
             windAmount.current = value;
