@@ -105,23 +105,27 @@ void main() {
   float specular = pow(max(dot(normal, halfDirection), 0.0), 18.0);
   float silverEdge = pow(1.0 - abs(dot(normal, view)), 3.2);
 
-  // Palette sampled from the reference footage:
-  // #172411, #405222, #6c8135, #98af50, #a7be5f, #c4d591.
-  vec3 root = vec3(0.0902, 0.1412, 0.0667);
-  vec3 shadowBlade = vec3(0.2510, 0.3216, 0.1333);
-  vec3 greenBlade = vec3(0.4235, 0.5059, 0.2078);
-  vec3 sunBlade = vec3(0.5961, 0.6863, 0.3137);
-  vec3 paleBlade = vec3(0.6549, 0.7451, 0.3725);
-  vec3 silver = vec3(0.7686, 0.8353, 0.5686);
+  // Palette sampled from the target half of the pixel comparison:
+  // #192818, #2e3e26, #384a3a, #62734d, #76863d, #a0ae55,
+  // #a1ac74, #afb884, #c6d098.
+  vec3 root = vec3(0.0980, 0.1569, 0.0941);
+  vec3 shadowBlade = vec3(0.2196, 0.2902, 0.2275);
+  vec3 greenBlade = vec3(0.4627, 0.5255, 0.2392);
+  vec3 sunBlade = vec3(0.6275, 0.6824, 0.3333);
+  vec3 paleBlade = vec3(0.6863, 0.7216, 0.5176);
+  vec3 silver = vec3(0.7765, 0.8157, 0.5961);
 
-  vec3 color = mix(shadowBlade, greenBlade, vShade);
+  float colorFamily = smoothstep(0.43, 0.49, vShade);
+  vec3 color = mix(shadowBlade, greenBlade, colorFamily);
+  color *= mix(0.88, 1.08, fract(vShade * 3.17));
   color = mix(root, color, smoothstep(0.03, 0.34, vT));
   color = mix(color, sunBlade, smoothstep(0.42, 1.0, vT) * (0.14 + vShade * 0.18));
-  float illumination = 0.54 + direct * 0.78 + translucent * 0.28 + vGust * 0.07;
+  float illumination = 0.75 + direct * 0.44 + translucent * 0.16 + vGust * 0.035;
   color *= illumination;
-  color += paleBlade * silverEdge * (0.16 + vT * 0.31);
-  color += silver * specular * (0.32 + vGust * 0.32) * smoothstep(0.16, 1.0, vT);
-  color = min(color, silver * 1.04);
+  color += paleBlade * silverEdge * (0.18 + vT * 0.34);
+  color += silver * specular * (0.38 + vGust * 0.26) * smoothstep(0.16, 1.0, vT);
+  color *= mix(1.0, 1.24, smoothstep(0.08, 0.70, vT));
+  color = min(color, silver);
   outColor = vec4(color, 1.0);
 }`;
 
@@ -147,11 +151,12 @@ float hash(vec2 p) {
 void main() {
   float fine = hash(floor(vWorld * 13.0));
   float broad = sin(vWorld.x * 0.52 + vWorld.y * 0.29) * 0.5 + 0.5;
-  vec3 deepest = vec3(0.0902, 0.1412, 0.0667);
-  vec3 soilGreen = vec3(0.1569, 0.2196, 0.1216);
-  vec3 lifted = vec3(0.2000, 0.2627, 0.1529);
-  vec3 color = mix(deepest, soilGreen, fine * 0.34 + broad * 0.23);
-  color = mix(color, lifted, max(0.0, broad - 0.76) * 0.16);
+  vec3 deepest = vec3(0.0980, 0.1569, 0.0941);
+  vec3 soilGreen = vec3(0.1804, 0.2431, 0.1490);
+  vec3 lifted = vec3(0.2196, 0.2902, 0.2275);
+  vec3 color = mix(deepest, soilGreen, fine * 0.42 + broad * 0.28);
+  color = mix(color, lifted, max(0.0, broad - 0.70) * 0.26);
+  color *= 1.10;
   outColor = vec4(color, 1.0);
 }`;
 
@@ -159,6 +164,7 @@ type Vec3 = [number, number, number];
 type Clump = [number, number, number, number];
 
 const clumps: Clump[] = [
+  [-5.2,-18.5,.62,.26],[-3.3,-18.7,.66,.74],[-1.3,-18.4,.63,.38],[.8,-18.6,.68,.82],[2.9,-18.4,.64,.17],[5.0,-18.6,.66,.59],
   [-4.5,-16.2,.68,.71],[-2.5,-16.1,.72,.22],[-.4,-16.3,.69,.85],[1.7,-16.1,.74,.39],[3.8,-16.2,.70,.63],
   [-5.2,-14.0,.73,.14],[-3.3,-14.1,.68,.62],[-1.4,-13.9,.76,.34],[.7,-14.0,.72,.78],[2.8,-14.1,.76,.46],[4.9,-13.8,.70,.91],
   [-4.5,-12.0,.80,.58],[-2.5,-11.8,.86,.20],[-.35,-12.1,.79,.83],[1.8,-11.9,.85,.41],[4.0,-12.0,.82,.70],
@@ -266,14 +272,16 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
 
   clumps.forEach(([centerX,centerZ,radius,variation], clumpIndex) => {
     const clumpPhase = seeded(clumpIndex, 20) * Math.PI * 2;
-    const scaledRadius = radius * 1.33;
+    const foreground = Math.max(0, Math.min(1, (centerZ + 1) / 9.5));
+    const scaledRadius = radius * 1.33 * (1 - foreground * .12);
+    const verticalScale = 1 - foreground * .52;
     for (let bladeIndex=0;bladeIndex<counts[clumpIndex];bladeIndex+=1) {
       const offset = index * 11;
       const angle = seeded(index, 1) * Math.PI * 2;
       const rootDistance = Math.sqrt(seeded(index, 2)) * scaledRadius * .58;
       const rootRatio = rootDistance / (scaledRadius * .58);
-      const rootLift = .025 + Math.sqrt(Math.max(0, 1 - rootRatio * rootRatio)) * scaledRadius * .27;
-      const height = scaledRadius * (.58 + seeded(index, 3) * .62) * (.97 + variation * .08);
+      const rootLift = .025 + Math.sqrt(Math.max(0, 1 - rootRatio * rootRatio)) * scaledRadius * .27 * verticalScale;
+      const height = scaledRadius * (.58 + seeded(index, 3) * .62) * (.97 + variation * .08) * verticalScale;
       instances[offset] = centerX + Math.cos(angle) * rootDistance;
       instances[offset+1] = rootLift;
       instances[offset+2] = centerZ + Math.sin(angle) * rootDistance;
@@ -284,7 +292,7 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       instances[offset+7] = seeded(index, 7) * Math.PI * 2;
       instances[offset+8] = .18 + seeded(index, 8) * .82;
       instances[offset+9] = clumpPhase;
-      instances[offset+10] = .20 + Math.pow(seeded(index, 9), .72) * .68;
+      instances[offset+10] = Math.min(.98, .20 + Math.pow(seeded(index, 9), .72) * .68 + foreground * .14);
       index += 1;
     }
   });
@@ -312,7 +320,7 @@ function groundGeometry(gl: WebGL2RenderingContext) {
   if (!vao || !buffer) throw new Error("Ground allocation failed");
   gl.bindVertexArray(vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-10,-19,10,-19,-10,12,-10,12,10,-19,10,12]),gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-10,-22,10,-22,-10,12,-10,12,10,-22,10,12]),gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0);
   gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
   gl.bindVertexArray(null);
@@ -322,13 +330,13 @@ function groundGeometry(gl: WebGL2RenderingContext) {
 function start(canvas: HTMLCanvasElement) {
   const gl = canvas.getContext("webgl2",{antialias:true,alpha:false,depth:true,powerPreference:"high-performance"});
   if (!gl) return;
-  const camera: Vec3 = [0,7.6,8.7];
+  const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
   const groundProgram = program(gl,groundVertex,groundFragment);
   const requested = matchMedia("(max-width:700px)").matches ? 92000 : 138000;
   const grass = grassGeometry(gl,requested);
   const ground = groundGeometry(gl);
-  const view = lookAt(camera,[0,.32,-2.25]);
+  const view = lookAt(camera,[0,.30,-2.35]);
   const grassVP = gl.getUniformLocation(grassProgram,"uVP");
   const groundVP = gl.getUniformLocation(groundProgram,"uVP");
   const time = gl.getUniformLocation(grassProgram,"uTime");
@@ -348,7 +356,7 @@ function start(canvas: HTMLCanvasElement) {
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.disable(gl.CULL_FACE);
-    gl.clearColor(.0902,.1412,.0667,1);
+    gl.clearColor(.0980,.1569,.0941,1);
     gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     gl.useProgram(groundProgram);
     gl.uniformMatrix4fv(groundVP,false,vp);
