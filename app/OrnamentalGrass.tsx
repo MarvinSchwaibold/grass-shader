@@ -102,32 +102,36 @@ void main() {
   vec3 halfDirection = normalize(sun + view);
   float direct = max(dot(normal, sun), 0.0);
   float translucent = pow(max(dot(-normal, sun), 0.0), 1.2);
-  float specular = pow(max(dot(normal, halfDirection), 0.0), 18.0);
-  float silverEdge = pow(1.0 - abs(dot(normal, view)), 3.2);
+  float specular = pow(max(dot(normal, halfDirection), 0.0), 24.0);
+  float silverEdge = pow(1.0 - abs(dot(normal, view)), 6.4);
 
   // Palette sampled from the target half of the pixel comparison:
   // #192818, #2e3e26, #384a3a, #62734d, #76863d, #a0ae55,
   // #a1ac74, #afb884, #c6d098.
-  vec3 root = vec3(0.0745, 0.1216, 0.0706);
-  vec3 shadowBlade = vec3(0.1804, 0.2431, 0.1490);
+  vec3 root = vec3(0.0588, 0.0941, 0.0529);
+  vec3 shadowBlade = vec3(0.1451, 0.2039, 0.1294);
   vec3 coolBlade = vec3(0.2784, 0.3451, 0.2588);
   vec3 oliveBlade = vec3(0.4627, 0.5255, 0.2392);
-  vec3 dullBlade = vec3(0.5843, 0.6314, 0.4039);
+  vec3 dullBlade = vec3(0.5451, 0.5843, 0.4196);
+  vec3 dryBlade = vec3(0.6314, 0.6549, 0.3922);
+  vec3 grayBlade = vec3(0.5569, 0.5961, 0.4941);
   vec3 paleBlade = vec3(0.6863, 0.7216, 0.5176);
   vec3 silver = vec3(0.7765, 0.8157, 0.5961);
 
-  float dryFamily = smoothstep(0.70, 0.88, vShade);
+  float dryFamily = smoothstep(0.76, 0.93, vShade);
   vec3 color = vShade < 0.32 ? coolBlade
     : (vShade < 0.72 ? oliveBlade : dullBlade);
-  color *= mix(0.80, 1.14, fract(vShade * 5.71));
-  color = mix(root, color, smoothstep(0.04, 0.38, vT));
-  color = mix(color, shadowBlade, (1.0 - smoothstep(0.0, 0.22, vT)) * 0.28);
-  color = mix(color, paleBlade, smoothstep(0.50, 1.0, vT) * dryFamily * 0.28);
-  float illumination = 0.62 + direct * 0.52 + translucent * 0.14 + vGust * 0.030;
+  vec3 weathered = fract(vShade * 13.71) < 0.48 ? dryBlade : grayBlade;
+  color = mix(color, weathered, dryFamily * 0.78);
+  color *= mix(0.72, 1.18, fract(vShade * 5.71));
+  color = mix(root, color, smoothstep(0.10, 0.52, vT));
+  color = mix(color, shadowBlade, (1.0 - smoothstep(0.04, 0.32, vT)) * 0.35);
+  color = mix(color, paleBlade, smoothstep(0.58, 1.0, vT) * dryFamily * 0.16);
+  float illumination = 0.63 + direct * 0.94 + translucent * 0.20 + vGust * 0.024;
   color *= illumination;
-  color += paleBlade * silverEdge * (0.10 + vT * 0.25);
-  color += silver * specular * (0.58 + vGust * 0.32) * smoothstep(0.18, 1.0, vT);
-  color *= mix(1.0, 1.14, smoothstep(0.10, 0.72, vT));
+  color += paleBlade * silverEdge * (0.035 + vT * 0.105);
+  color += silver * specular * (0.61 + vGust * 0.27) * smoothstep(0.24, 1.0, vT);
+  color *= mix(1.0, 1.11, smoothstep(0.16, 0.78, vT));
   color = min(color, silver);
   outColor = vec4(color, 1.0);
 }`;
@@ -276,12 +280,14 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
   const instanceBuffer = gl.createBuffer();
   if (!vao || !bladeBuffer || !instanceBuffer) throw new Error("Grass allocation failed");
 
-  const segments = 7;
+  const segments = 6;
   const blade = new Float32Array((segments + 1) * 4);
   for (let i=0;i<=segments;i+=1) blade.set([-1,i/segments,1,i/segments], i*4);
 
-  const totalWeight = clumps.reduce((sum, clump) => sum + clump[2] * clump[3] * clump[7], 0);
-  const counts = clumps.map((clump) => Math.floor(requested * clump[2] * clump[3] * clump[7] / totalWeight));
+  const weight = (clump: Clump) => clump[2] * clump[3] * clump[7]
+    * (clump[7] < .40 ? 1.65 : 1);
+  const totalWeight = clumps.reduce((sum, clump) => sum + weight(clump), 0);
+  const counts = clumps.map((clump) => Math.floor(requested * weight(clump) / totalWeight));
   let count = counts.reduce((sum, value) => sum + value, 0);
   for (let i=0;count<requested;i=(i+1)%counts.length) { counts[i] += 1; count += 1; }
   const instances = new Float32Array(count * 11);
@@ -298,17 +304,22 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
     const flowX = Math.cos(flow);
     const flowZ = Math.sin(flow);
     const meanRadius = Math.sqrt(radiusX * radiusZ);
-    const clumpLength = .78 + seeded(clumpIndex, 15) * .43;
-    const clumpCollapseBias = (seeded(clumpIndex, 16) - .5) * .20;
+    const clumpLength = .73 + seeded(clumpIndex, 15) * .39;
+    const clumpCollapseBias = (seeded(clumpIndex, 16) - .5) * .34;
+    const organicCenterX = centerX + (seeded(clumpIndex, 17) - .5) * .42;
+    const organicCenterZ = centerZ + (seeded(clumpIndex, 18) - .5) * .54;
     for (let bladeIndex=0;bladeIndex<counts[clumpIndex];bladeIndex+=1) {
       const offset = index * 11;
       const angle = seeded(index, 1) * Math.PI * 2;
-      const rootRatio = Math.pow(seeded(index, 2), .74);
+      const radialSeed = seeded(index, 2);
+      const rootRatio = seeded(index, 17) < .60
+        ? Math.pow(radialSeed, 1.48) * .82
+        : Math.pow(radialSeed, .58);
       const brokenEdge = 1
-        + Math.sin(angle * 3 + clumpPhase) * .13
-        + Math.sin(angle * 5 - clumpPhase * .63) * .07;
-      const localX = Math.cos(angle) * rootRatio * radiusX * brokenEdge * .57;
-      const localZ = Math.sin(angle) * rootRatio * radiusZ * brokenEdge * .57;
+        + Math.sin(angle * 3 + clumpPhase) * .18
+        + Math.sin(angle * 5 - clumpPhase * .63) * .11;
+      const localX = Math.cos(angle) * rootRatio * radiusX * brokenEdge * .80;
+      const localZ = Math.sin(angle) * rootRatio * radiusZ * brokenEdge * .80;
       const lobeRoll = seeded(index, 14);
       const lobeSide = lobeRoll < .28 ? -1 : lobeRoll > .72 ? 1 : 0;
       const lobeDepth = lobeRoll < .16 ? -.7 : lobeRoll > .84 ? .55 : 0;
@@ -319,32 +330,43 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       const outwardLength = Math.hypot(rootX,rootZ) || 1;
       const outwardX = rootX / outwardLength;
       const outwardZ = rootZ / outwardLength;
-      const directionalWeight = .63 + collapse * .09;
-      const directionX = flowX * directionalWeight + outwardX * (1 - directionalWeight);
-      const directionZ = flowZ * directionalWeight + outwardZ * (1 - directionalWeight);
+      const patchAngle = flow
+        + Math.sin(angle * 2 + clumpPhase) * 1.05
+        + Math.sin(angle * 5 - clumpPhase * .72) * .46;
+      const patchX = Math.cos(patchAngle);
+      const patchZ = Math.sin(patchAngle);
+      const directionX = patchX * .84 + outwardX * .16;
+      const directionZ = patchZ * .84 + outwardZ * .16;
+      const tangled = seeded(index, 19) < .23 ? 1 : 0;
       const direction = Math.atan2(directionZ,directionX)
-        + (seeded(index, 5) - .5) * (1.82 - collapse * .48)
-        + Math.sin(angle * 2 + clumpPhase) * .11;
-      const strandNoise = .60 + Math.pow(seeded(index, 3), .72) * 1.04;
+        + (seeded(index, 5) - .5) * 1.46
+        + tangled * (seeded(index, 20) - .5) * 2.35;
+      const strandNoise = .70 + Math.pow(seeded(index, 3), .78) * .66;
       const irregularProfile = Math.max(.56,Math.min(1.28,
         .84 + Math.sin(angle * 2 + clumpPhase) * .23
         + Math.sin(angle * 5 - clumpPhase * .71) * .15
       ));
-      const strayLength = seeded(index, 13) > .88 ? 1.42
-        : seeded(index, 13) < .17 ? .62 : 1;
-      const edgeLength = .90 + (1 - rootRatio) * .30
+      const strayLength = seeded(index, 13) > .91 ? 1.20
+        : seeded(index, 13) < .19 ? .64 : 1;
+      const baseBlade = seeded(index, 21) < .31 ? 1 : 0;
+      const contactPatch = rootRatio > .48
+        && Math.sin(angle * 3 + clumpPhase) > .42 ? 1 : 0;
+      const edgeLength = .86 + (1 - rootRatio) * .22
         + Math.max(-.13,Math.min(.13,(rootX * flowX + rootZ * flowZ) / meanRadius * .12));
       const flattenedMat = density < .40 ? 1 : 0;
-      const height = meanRadius * 1.40 * strandNoise * edgeLength
+      const height = meanRadius * 1.18 * strandNoise * edgeLength
         * irregularProfile * strayLength * lengthScale * clumpLength
-        * (1 - foreground * .17) * (1 - flattenedMat * .24);
+        * (1 - foreground * .13) * (1 - flattenedMat * .33)
+        * (1 - contactPatch * .18) * (1 - baseBlade * .34)
+        * (1 - tangled * .09);
       const rootLift = .018 + (1 - rootRatio) * .045 * (1 - collapse * .54)
         + seeded(index, 12) * .018;
-      instances[offset] = centerX + rootX;
+      instances[offset] = organicCenterX + rootX;
       instances[offset+1] = rootLift;
-      instances[offset+2] = centerZ + rootZ;
+      instances[offset+2] = organicCenterZ + rootZ;
       instances[offset+3] = height;
-      instances[offset+4] = .0055 + seeded(index, 4) * .0105;
+      instances[offset+4] = (.011 + seeded(index, 4) * .014)
+        * (1 + baseBlade * .18);
       instances[offset+5] = direction;
       instances[offset+6] = direction + Math.PI * .5 + (seeded(index, 6) - .5) * .62;
       instances[offset+7] = seeded(index, 7) * Math.PI * 2;
@@ -355,11 +377,12 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       ));
       instances[offset+9] = clumpPhase;
       instances[offset+10] = Math.max(.34,Math.min(.98,
-        .22 + collapse * .48 + foreground * .04 + rootRatio * .24
+        .18 + collapse * .46 + foreground * .03 + rootRatio * .31
         + clumpCollapseBias
         + Math.sin(angle * 2 + clumpPhase) * .075
         + Math.sin(angle * 5 - clumpPhase) * .035
-        + flattenedMat * .17 + (seeded(index, 9) - .5) * .28
+        + flattenedMat * .29 + contactPatch * .18 - baseBlade * .10
+        + tangled * .07 + (seeded(index, 9) - .5) * .32
       ));
       index += 1;
     }
@@ -401,7 +424,7 @@ function start(canvas: HTMLCanvasElement) {
   const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
   const groundProgram = program(gl,groundVertex,groundFragment);
-  const requested = matchMedia("(max-width:700px)").matches ? 66000 : 92000;
+  const requested = matchMedia("(max-width:700px)").matches ? 108000 : 156000;
   const grass = grassGeometry(gl,requested);
   const ground = groundGeometry(gl);
   const view = lookAt(camera,[0,.30,-2.35]);
