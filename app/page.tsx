@@ -1,13 +1,13 @@
-import { GrassField } from "./GrassField";
+import { OrnamentalGrass } from "./OrnamentalGrass";
 
 export default function Home() {
   return (
     <main className="page-shell">
       <figure className="grass-stage">
-        <GrassField />
+        <OrnamentalGrass />
         <figcaption className="visually-hidden">
-          A close, sunlit field of fine green grass moving continuously in the
-          wind.
+          Dense mounds of long ornamental grass moving continuously in bright
+          coastal wind.
         </figcaption>
       </figure>
     </main>

@@ -30,9 +30,9 @@ body {
   height: min(86svh, 920px);
   max-width: calc(100vw - 36px);
   margin: 0;
-  aspect-ratio: 9 / 16;
+  aspect-ratio: 832 / 1492;
   overflow: hidden;
-  background: #426d27;
+  background: #172411;
   isolation: isolate;
 }
 
@@ -48,8 +48,8 @@ body {
   inset: 0;
   z-index: -1;
   background:
-    linear-gradient(147deg, rgb(128 167 67 / 26%), transparent 42%),
-    repeating-linear-gradient(78deg, #315d24 0, #315d24 2px, #588237 3px, #426b2a 5px);
+    linear-gradient(147deg, rgb(167 190 95 / 24%), transparent 42%),
+    repeating-linear-gradient(78deg, #172411 0, #172411 2px, #405222 3px, #28381f 5px);
 }
 
 .visually-hidden {
