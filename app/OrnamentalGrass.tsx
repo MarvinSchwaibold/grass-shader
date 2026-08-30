@@ -108,23 +108,26 @@ void main() {
   // Palette sampled from the target half of the pixel comparison:
   // #192818, #2e3e26, #384a3a, #62734d, #76863d, #a0ae55,
   // #a1ac74, #afb884, #c6d098.
-  vec3 root = vec3(0.0980, 0.1569, 0.0941);
-  vec3 shadowBlade = vec3(0.2196, 0.2902, 0.2275);
-  vec3 greenBlade = vec3(0.4627, 0.5255, 0.2392);
-  vec3 sunBlade = vec3(0.6275, 0.6824, 0.3333);
+  vec3 root = vec3(0.0745, 0.1216, 0.0706);
+  vec3 shadowBlade = vec3(0.1804, 0.2431, 0.1490);
+  vec3 coolBlade = vec3(0.2784, 0.3451, 0.2588);
+  vec3 oliveBlade = vec3(0.4627, 0.5255, 0.2392);
+  vec3 dullBlade = vec3(0.5843, 0.6314, 0.4039);
   vec3 paleBlade = vec3(0.6863, 0.7216, 0.5176);
   vec3 silver = vec3(0.7765, 0.8157, 0.5961);
 
-  float colorFamily = smoothstep(0.43, 0.49, vShade);
-  vec3 color = mix(shadowBlade, greenBlade, colorFamily);
-  color *= mix(0.88, 1.08, fract(vShade * 3.17));
-  color = mix(root, color, smoothstep(0.03, 0.34, vT));
-  color = mix(color, sunBlade, smoothstep(0.42, 1.0, vT) * (0.14 + vShade * 0.18));
-  float illumination = 0.75 + direct * 0.44 + translucent * 0.16 + vGust * 0.035;
+  float dryFamily = smoothstep(0.70, 0.88, vShade);
+  vec3 color = vShade < 0.32 ? coolBlade
+    : (vShade < 0.72 ? oliveBlade : dullBlade);
+  color *= mix(0.80, 1.14, fract(vShade * 5.71));
+  color = mix(root, color, smoothstep(0.04, 0.38, vT));
+  color = mix(color, shadowBlade, (1.0 - smoothstep(0.0, 0.22, vT)) * 0.28);
+  color = mix(color, paleBlade, smoothstep(0.50, 1.0, vT) * dryFamily * 0.28);
+  float illumination = 0.62 + direct * 0.52 + translucent * 0.14 + vGust * 0.030;
   color *= illumination;
-  color += paleBlade * silverEdge * (0.18 + vT * 0.34);
-  color += silver * specular * (0.38 + vGust * 0.26) * smoothstep(0.16, 1.0, vT);
-  color *= mix(1.0, 1.24, smoothstep(0.08, 0.70, vT));
+  color += paleBlade * silverEdge * (0.10 + vT * 0.25);
+  color += silver * specular * (0.58 + vGust * 0.32) * smoothstep(0.18, 1.0, vT);
+  color *= mix(1.0, 1.14, smoothstep(0.10, 0.72, vT));
   color = min(color, silver);
   outColor = vec4(color, 1.0);
 }`;
@@ -151,30 +154,44 @@ float hash(vec2 p) {
 void main() {
   float fine = hash(floor(vWorld * 13.0));
   float broad = sin(vWorld.x * 0.52 + vWorld.y * 0.29) * 0.5 + 0.5;
-  vec3 deepest = vec3(0.0980, 0.1569, 0.0941);
+  float pathA = 1.0 - smoothstep(0.26, 0.94,
+    abs(vWorld.x + 1.10 + sin(vWorld.y * 0.42) * 0.82));
+  float pathB = 1.0 - smoothstep(0.24, 0.82,
+    abs(vWorld.x - 2.75 - sin(vWorld.y * 0.31 + 1.2) * 0.64));
+  float crossPath = 1.0 - smoothstep(0.25, 0.78,
+    abs(vWorld.y + 5.7 - sin(vWorld.x * 0.58) * 0.76));
+  float pocket = pow(max(0.0,
+    sin(vWorld.x * 1.23 + vWorld.y * 0.37)
+    * sin(vWorld.y * 0.94 - vWorld.x * 0.18)), 3.0);
+  vec3 deepest = vec3(0.0745, 0.1216, 0.0706);
   vec3 soilGreen = vec3(0.1804, 0.2431, 0.1490);
   vec3 lifted = vec3(0.2196, 0.2902, 0.2275);
   vec3 color = mix(deepest, soilGreen, fine * 0.42 + broad * 0.28);
   color = mix(color, lifted, max(0.0, broad - 0.70) * 0.26);
-  color *= 1.10;
+  color = mix(color, deepest, min(0.72,pathA * 0.27 + pathB * 0.24 + crossPath * 0.18 + pocket * 0.32));
+  color *= 1.06;
   outColor = vec4(color, 1.0);
 }`;
 
 type Vec3 = [number, number, number];
-type Clump = [number, number, number, number];
+type Clump = [
+  number, number, number, number, number,
+  number, number, number, number, number,
+];
 
 const clumps: Clump[] = [
-  [-5.2,-18.5,.62,.26],[-3.3,-18.7,.66,.74],[-1.3,-18.4,.63,.38],[.8,-18.6,.68,.82],[2.9,-18.4,.64,.17],[5.0,-18.6,.66,.59],
-  [-4.5,-16.2,.68,.71],[-2.5,-16.1,.72,.22],[-.4,-16.3,.69,.85],[1.7,-16.1,.74,.39],[3.8,-16.2,.70,.63],
-  [-5.2,-14.0,.73,.14],[-3.3,-14.1,.68,.62],[-1.4,-13.9,.76,.34],[.7,-14.0,.72,.78],[2.8,-14.1,.76,.46],[4.9,-13.8,.70,.91],
-  [-4.5,-12.0,.80,.58],[-2.5,-11.8,.86,.20],[-.35,-12.1,.79,.83],[1.8,-11.9,.85,.41],[4.0,-12.0,.82,.70],
-  [-5.1,-9.9,.91,.28],[-3.05,-9.7,.88,.76],[-.9,-9.8,.96,.36],[1.5,-9.7,.90,.89],[3.8,-9.9,.94,.53],[5.6,-9.6,.86,.18],
-  [-4.5,-7.5,1.02,.67],[-2.15,-7.2,1.08,.24],[.25,-7.5,1.00,.82],[2.65,-7.2,1.09,.38],[5.0,-7.4,1.02,.72],
-  [-5.1,-4.7,1.15,.19],[-2.55,-4.9,1.10,.71],[-.05,-4.5,1.24,.45],[2.75,-4.8,1.17,.88],[5.25,-4.5,1.12,.31],
-  [-4.55,-1.7,1.29,.74],[-1.75,-1.45,1.20,.25],[1.12,-1.8,1.38,.62],[4.1,-1.4,1.28,.16],
-  [-5.2,1.6,1.38,.40],[-2.3,1.8,1.48,.82],[.95,1.55,1.43,.23],[4.25,1.9,1.52,.68],
-  [-4.6,5.0,1.58,.78],[-1.1,4.8,1.68,.34],[2.55,5.1,1.62,.61],[5.8,4.7,1.55,.18],
-  [-3.8,8.5,1.72,.29],[-.1,8.1,1.82,.73],[3.8,8.4,1.78,.45],
+  [-5.55,-18.42,.92,.66,-.18,.45,.64,.86,.32,.86],[-3.46,-18.82,1.04,.72,.31,.72,.71,.94,.61,.92],[-1.17,-18.26,.88,.82,-.40,.55,.76,.79,.44,1.00],[.77,-18.73,1.12,.68,.24,.88,.69,.90,.74,.88],[3.02,-18.18,.91,.76,-.28,.38,.79,.82,.40,.95],[5.29,-18.61,1.04,.70,.42,.70,.65,.88,.58,.90],
+  [-4.78,-16.06,1.16,.82,.18,.40,.68,.92,.56,.95],[-2.48,-15.72,.98,.96,-.38,.86,.72,.84,.35,1.02],[-.24,-16.31,1.25,.84,.26,.60,.80,.93,.70,.90],[2.18,-15.62,1.06,.92,-.16,.95,.66,.88,.47,1.00],[4.57,-16.16,1.18,.84,.34,.50,.75,.95,.65,.94],
+  [-5.37,-13.62,1.12,.91,-.28,.76,.74,.81,.42,1.04],[-3.23,-14.08,1.27,.86,.36,.32,.67,.95,.68,.91],[-.82,-13.42,1.10,1.02,-.18,.98,.83,.89,.36,.98],[1.42,-13.93,1.31,.88,.30,.62,.70,.96,.59,1.05],[3.74,-13.36,1.08,1.00,-.42,.84,.78,.86,.76,.92],[5.62,-14.02,.98,.86,.22,.48,.64,.79,.48,1.02],
+  [-4.73,-11.05,1.38,.99,.31,.88,.70,.94,.62,1.03],[-2.11,-11.52,1.17,1.12,-.36,.42,.84,.82,.34,.94],[.26,-10.87,1.44,.96,.14,1.02,.76,.97,.71,1.08],[2.88,-11.41,1.25,1.13,-.24,.60,.69,.88,.49,.96],[5.12,-10.71,1.33,.94,.39,.78,.81,.91,.66,1.01],
+  [-5.36,-8.54,1.42,1.14,-.21,.36,.78,.86,.45,1.06],[-2.73,-8.97,1.51,1.02,.29,.91,.66,.96,.72,.98],[-.08,-8.24,1.31,1.24,-.35,.56,.88,.87,.30,1.00],[2.43,-8.82,1.55,1.07,.20,1.05,.74,.95,.61,1.10],[5.07,-8.18,1.41,1.18,-.32,.69,.82,.89,.51,.94],
+  [-4.65,-5.83,1.68,1.22,.27,.82,.70,.93,.69,1.05],[-1.63,-6.31,1.48,1.36,-.41,.40,.86,.84,.38,.96],[1.13,-5.48,1.72,1.19,.18,.98,.79,.98,.58,1.12],[4.24,-6.02,1.59,1.31,-.28,.58,.73,.91,.47,1.00],
+  [-5.20,-2.64,1.74,1.43,-.34,.36,.85,.87,.40,1.03],[-2.01,-3.17,1.92,1.31,.24,.86,.72,.97,.71,1.12],[1.19,-2.32,1.66,1.55,-.26,.52,.91,.90,.31,.98],[4.34,-3.03,1.88,1.34,.35,1.00,.78,.95,.60,1.08],
+  [-4.53,.66,2.04,1.42,.20,.78,.76,.92,.64,1.08],[-.98,-.15,2.22,1.55,-.38,.39,.92,.98,.35,1.02],[2.75,.74,2.10,1.46,.29,.96,.82,.94,.57,1.12],[5.76,-.04,1.48,1.34,-.24,.55,.70,.78,.48,.95],
+  [-5.02,4.16,2.13,1.63,-.29,.32,.90,.88,.43,1.04],[-1.32,3.48,2.40,1.71,.24,.84,.80,.98,.68,1.13],[2.58,4.43,2.24,1.58,-.36,.50,.94,.92,.32,1.00],[6.05,3.71,1.63,1.48,.31,1.02,.77,.80,.56,1.06],
+  [-4.02,7.79,2.62,1.82,.26,.72,.94,.90,.54,1.05],[.31,7.18,2.72,1.93,-.33,.34,.88,.99,.39,1.10],[4.62,7.92,2.56,1.74,.20,.91,.96,.93,.65,1.00],
+
+  [-1.95,-12.52,2.12,.30,-.22,.22,.98,.22,.49,.67],[3.45,-9.78,2.42,.34,.18,.91,.99,.26,.62,.71],[-3.18,-7.14,2.28,.36,-.31,.40,.97,.24,.44,.72],[1.86,-4.39,2.62,.38,.27,.78,.99,.28,.68,.66],[-2.44,-.94,2.75,.42,-.24,.28,.98,.30,.52,.70],[2.04,2.37,3.02,.45,.20,.88,.99,.33,.72,.64],[-1.06,6.02,3.32,.52,-.18,.38,.99,.34,.57,.68],
 ];
 
 function shader(gl: WebGL2RenderingContext, type: number, source: string) {
@@ -263,36 +280,87 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
   const blade = new Float32Array((segments + 1) * 4);
   for (let i=0;i<=segments;i+=1) blade.set([-1,i/segments,1,i/segments], i*4);
 
-  const totalWeight = clumps.reduce((sum, clump) => sum + clump[2] * clump[2], 0);
-  const counts = clumps.map((clump) => Math.floor(requested * clump[2] * clump[2] / totalWeight));
+  const totalWeight = clumps.reduce((sum, clump) => sum + clump[2] * clump[3] * clump[7], 0);
+  const counts = clumps.map((clump) => Math.floor(requested * clump[2] * clump[3] * clump[7] / totalWeight));
   let count = counts.reduce((sum, value) => sum + value, 0);
   for (let i=0;count<requested;i=(i+1)%counts.length) { counts[i] += 1; count += 1; }
   const instances = new Float32Array(count * 11);
   let index = 0;
 
-  clumps.forEach(([centerX,centerZ,radius,variation], clumpIndex) => {
+  clumps.forEach(([
+    centerX,centerZ,radiusX,radiusZ,rotation,flow,collapse,
+    density,tone,lengthScale,
+  ], clumpIndex) => {
     const clumpPhase = seeded(clumpIndex, 20) * Math.PI * 2;
-    const foreground = Math.max(0, Math.min(1, (centerZ + 1) / 9.5));
-    const scaledRadius = radius * 1.33 * (1 - foreground * .12);
-    const verticalScale = 1 - foreground * .52;
+    const foreground = Math.max(0, Math.min(1, (centerZ + 2) / 10));
+    const rotationCos = Math.cos(rotation);
+    const rotationSin = Math.sin(rotation);
+    const flowX = Math.cos(flow);
+    const flowZ = Math.sin(flow);
+    const meanRadius = Math.sqrt(radiusX * radiusZ);
+    const clumpLength = .78 + seeded(clumpIndex, 15) * .43;
+    const clumpCollapseBias = (seeded(clumpIndex, 16) - .5) * .20;
     for (let bladeIndex=0;bladeIndex<counts[clumpIndex];bladeIndex+=1) {
       const offset = index * 11;
       const angle = seeded(index, 1) * Math.PI * 2;
-      const rootDistance = Math.sqrt(seeded(index, 2)) * scaledRadius * .58;
-      const rootRatio = rootDistance / (scaledRadius * .58);
-      const rootLift = .025 + Math.sqrt(Math.max(0, 1 - rootRatio * rootRatio)) * scaledRadius * .27 * verticalScale;
-      const height = scaledRadius * (.58 + seeded(index, 3) * .62) * (.97 + variation * .08) * verticalScale;
-      instances[offset] = centerX + Math.cos(angle) * rootDistance;
+      const rootRatio = Math.pow(seeded(index, 2), .74);
+      const brokenEdge = 1
+        + Math.sin(angle * 3 + clumpPhase) * .13
+        + Math.sin(angle * 5 - clumpPhase * .63) * .07;
+      const localX = Math.cos(angle) * rootRatio * radiusX * brokenEdge * .57;
+      const localZ = Math.sin(angle) * rootRatio * radiusZ * brokenEdge * .57;
+      const lobeRoll = seeded(index, 14);
+      const lobeSide = lobeRoll < .28 ? -1 : lobeRoll > .72 ? 1 : 0;
+      const lobeDepth = lobeRoll < .16 ? -.7 : lobeRoll > .84 ? .55 : 0;
+      const rootX = localX * rotationCos - localZ * rotationSin
+        - flowZ * lobeSide * radiusX * .13 + flowX * lobeDepth * radiusZ * .08;
+      const rootZ = localX * rotationSin + localZ * rotationCos
+        + flowX * lobeSide * radiusX * .13 + flowZ * lobeDepth * radiusZ * .08;
+      const outwardLength = Math.hypot(rootX,rootZ) || 1;
+      const outwardX = rootX / outwardLength;
+      const outwardZ = rootZ / outwardLength;
+      const directionalWeight = .63 + collapse * .09;
+      const directionX = flowX * directionalWeight + outwardX * (1 - directionalWeight);
+      const directionZ = flowZ * directionalWeight + outwardZ * (1 - directionalWeight);
+      const direction = Math.atan2(directionZ,directionX)
+        + (seeded(index, 5) - .5) * (1.82 - collapse * .48)
+        + Math.sin(angle * 2 + clumpPhase) * .11;
+      const strandNoise = .60 + Math.pow(seeded(index, 3), .72) * 1.04;
+      const irregularProfile = Math.max(.56,Math.min(1.28,
+        .84 + Math.sin(angle * 2 + clumpPhase) * .23
+        + Math.sin(angle * 5 - clumpPhase * .71) * .15
+      ));
+      const strayLength = seeded(index, 13) > .88 ? 1.42
+        : seeded(index, 13) < .17 ? .62 : 1;
+      const edgeLength = .90 + (1 - rootRatio) * .30
+        + Math.max(-.13,Math.min(.13,(rootX * flowX + rootZ * flowZ) / meanRadius * .12));
+      const flattenedMat = density < .40 ? 1 : 0;
+      const height = meanRadius * 1.40 * strandNoise * edgeLength
+        * irregularProfile * strayLength * lengthScale * clumpLength
+        * (1 - foreground * .17) * (1 - flattenedMat * .24);
+      const rootLift = .018 + (1 - rootRatio) * .045 * (1 - collapse * .54)
+        + seeded(index, 12) * .018;
+      instances[offset] = centerX + rootX;
       instances[offset+1] = rootLift;
-      instances[offset+2] = centerZ + Math.sin(angle) * rootDistance;
+      instances[offset+2] = centerZ + rootZ;
       instances[offset+3] = height;
-      instances[offset+4] = .006 + seeded(index, 4) * .012;
-      instances[offset+5] = angle + (seeded(index, 5) - .5) * 1.32;
-      instances[offset+6] = instances[offset+5] + Math.PI * .5 + (seeded(index, 6) - .5) * .46;
+      instances[offset+4] = .0055 + seeded(index, 4) * .0105;
+      instances[offset+5] = direction;
+      instances[offset+6] = direction + Math.PI * .5 + (seeded(index, 6) - .5) * .62;
       instances[offset+7] = seeded(index, 7) * Math.PI * 2;
-      instances[offset+8] = .18 + seeded(index, 8) * .82;
+      const family = seeded(index, 11);
+      instances[offset+8] = Math.max(.06,Math.min(.98,
+        tone * .48 + seeded(index, 8) * .44
+        + (family > .87 ? .24 : 0) - (family < .14 ? .17 : 0)
+      ));
       instances[offset+9] = clumpPhase;
-      instances[offset+10] = Math.min(.98, .20 + Math.pow(seeded(index, 9), .72) * .68 + foreground * .14);
+      instances[offset+10] = Math.max(.34,Math.min(.98,
+        .22 + collapse * .48 + foreground * .04 + rootRatio * .24
+        + clumpCollapseBias
+        + Math.sin(angle * 2 + clumpPhase) * .075
+        + Math.sin(angle * 5 - clumpPhase) * .035
+        + flattenedMat * .17 + (seeded(index, 9) - .5) * .28
+      ));
       index += 1;
     }
   });
@@ -333,7 +401,7 @@ function start(canvas: HTMLCanvasElement) {
   const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
   const groundProgram = program(gl,groundVertex,groundFragment);
-  const requested = matchMedia("(max-width:700px)").matches ? 92000 : 138000;
+  const requested = matchMedia("(max-width:700px)").matches ? 66000 : 92000;
   const grass = grassGeometry(gl,requested);
   const ground = groundGeometry(gl);
   const view = lookAt(camera,[0,.30,-2.35]);
