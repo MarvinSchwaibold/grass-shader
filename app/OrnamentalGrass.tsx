@@ -233,6 +233,30 @@ void main() {
   float spatialLuma = mix(sourceLuma, referenceLuma, 0.28);
   vec3 spatialTint = referenceChroma * spatialLuma;
   color = mix(color, spatialTint, 0.34);
+
+  // Gentle value refinement only: lift midtones and reflected sunlight while
+  // preserving the restrained reference-field palette and existing shading.
+  float tintedLuma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+  float midtoneMask = smoothstep(0.14, 0.34, tintedLuma)
+    * (1.0 - smoothstep(0.62, 0.84, tintedLuma));
+  color *= 1.0 + midtoneMask * 0.075;
+
+  float sunlitBlade = smoothstep(0.42, 0.92, direct)
+    * smoothstep(0.25, 1.0, vT);
+  float reflectedFlash = clamp(
+    0.16 + silverEdge * 0.38 + strandFlash * 0.24 + specular * 0.45,
+    0.0, 1.0
+  );
+  color += vec3(0.043, 0.052, 0.046) * sunlitBlade * reflectedFlash;
+
+  float lowerHalf = 1.0 - smoothstep(0.38, 0.76, fieldUV.y);
+  float strawVariation = clamp(lowerHalf * 0.55 + flattened * 0.70, 0.0, 1.0)
+    * dryFamily * smoothstep(0.30, 1.0, vT);
+  color = mix(color, vec3(0.67, 0.63, 0.50), strawVariation * 0.085);
+
+  float refinedLuma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+  float shadowLift = 1.0 - smoothstep(0.11, 0.29, refinedLuma);
+  color += vec3(0.016, 0.022, 0.018) * shadowLift;
   color = min(color, silver);
   outColor = vec4(color, 1.0);
 }`;
