@@ -503,7 +503,14 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
 export function OrnamentalGrass() {
   const ref = useRef<HTMLCanvasElement>(null);
   const windAmount = useRef(1);
-  const drag = useRef({ active: false, lastX: 0, lastTime: 0, velocity: 0 });
+  const drag = useRef({
+    active: false,
+    left: 0,
+    width: 1,
+    lastX: 0,
+    lastTime: 0,
+    velocity: 0,
+  });
   const [windStrength, setWindStrength] = useState(50);
   const [elasticPull, setElasticPull] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -512,105 +519,126 @@ export function OrnamentalGrass() {
     try { return start(ref.current,windAmount); }
     catch (error) { console.error("Unable to start the ornamental grass field",error); }
   },[]);
-  const windFill = `${windStrength < 6 ? 0 : windStrength}%`;
+  const windFill = `${windStrength}%`;
   const setStrength = (strength: number) => {
     const next = Math.max(0,Math.min(100,strength));
     windAmount.current = .35 + (next / 100) * 1.3;
     setWindStrength(next);
   };
   return (
-    <div className="grass-experience">
-      <figure className="grass-stage">
-        <canvas
-          ref={ref}
-          className="grass-canvas"
-          role="img"
-          aria-label="Mounded ornamental grass moving continuously in layered coastal wind"
-        />
-        <div className="grass-fallback" aria-hidden="true" />
-        <figcaption className="visually-hidden">
-          Dense mounds of fine ornamental grass moving continuously in bright
-          coastal wind.
-        </figcaption>
-      </figure>
-      <label
-        className={`wind-control${isDragging ? " is-dragging" : ""}`}
-        style={{
-          "--wind-fill": windFill,
-          "--wind-pull": `${elasticPull * .58}px`,
-          "--wind-stretch": 1 + Math.abs(elasticPull) * .0024,
-          transformOrigin: elasticPull < 0 ? "right center" : "left center",
-        } as CSSProperties}
-      >
-        <span className="wind-control__progress" aria-hidden="true">
-          <span className="wind-control__filled-label" aria-hidden="true">Wind</span>
-          <span className="wind-control__filled-marker" />
-        </span>
-        <span className="wind-control__empty-marker" aria-hidden="true" />
-        <span className="wind-control__label" aria-hidden="true">Wind</span>
-        <output className="wind-control__value">{Math.round(windStrength)}</output>
-        <input
-          className="wind-control__range"
-          type="range"
-          min="0"
-          max="100"
-          step="1"
-          value={windStrength}
-          aria-label="Wind strength"
-          aria-valuetext={`${Math.round(windStrength)} out of 100`}
-          onChange={(event) => {
-            setStrength(Number(event.currentTarget.value));
-          }}
-          onPointerDown={(event) => {
-            event.preventDefault();
-            const input = event.currentTarget;
-            const box = input.getBoundingClientRect();
-            const now = performance.now();
-            drag.current = {
-              active: true,
-              lastX: event.clientX,
-              lastTime: now,
-              velocity: 0,
-            };
-            input.focus();
-            input.setPointerCapture(event.pointerId);
-            setIsDragging(true);
-            setElasticPull(0);
-            setStrength(((event.clientX - box.left) / box.width) * 100);
-          }}
-          onPointerMove={(event) => {
-            if (!drag.current.active) return;
-            const box = event.currentTarget.getBoundingClientRect();
-            const now = performance.now();
-            const elapsed = Math.max(1,now - drag.current.lastTime);
-            const velocity = (event.clientX - drag.current.lastX) / elapsed;
-            const raw = (event.clientX - box.left) / box.width;
-            const excess = raw < 0 ? raw * box.width
-              : raw > 1 ? (raw - 1) * box.width : 0;
-            const directedVelocity = (raw <= 0 && velocity < 0)
-              || (raw >= 1 && velocity > 0) ? velocity * 4.6 : 0;
-            const pull = Math.max(-18,Math.min(18,excess * .24 + directedVelocity));
-            drag.current.lastX = event.clientX;
-            drag.current.lastTime = now;
-            drag.current.velocity = velocity;
-            setElasticPull(pull);
-            setStrength(raw * 100);
-          }}
-          onPointerUp={(event) => {
-            drag.current.active = false;
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-              event.currentTarget.releasePointerCapture(event.pointerId);
-            }
-            setIsDragging(false);
-            setElasticPull(0);
-          }}
-          onPointerCancel={() => {
-            drag.current.active = false;
-            setIsDragging(false);
-            setElasticPull(0);
-          }}
-        />
-      </label>
+    <div className="grass-comparison">
+      <section className="grass-experience" aria-label="Generated grass simulation">
+        <figure className="grass-stage">
+          <canvas
+            ref={ref}
+            className="grass-canvas"
+            role="img"
+            aria-label="Mounded ornamental grass moving continuously in layered coastal wind"
+          />
+          <div className="grass-fallback" aria-hidden="true" />
+          <figcaption className="visually-hidden">
+            Dense mounds of fine ornamental grass moving continuously in bright
+            coastal wind.
+          </figcaption>
+        </figure>
+        <label
+          className={`wind-control${isDragging ? " is-dragging" : ""}`}
+          style={{
+            "--wind-fill": windFill,
+            "--wind-pull": `${elasticPull * .725}px`,
+            "--wind-stretch": 1 + Math.abs(elasticPull) * .003,
+            transformOrigin: elasticPull < 0 ? "right center" : "left center",
+          } as CSSProperties}
+        >
+          <span className="wind-control__progress" aria-hidden="true">
+            <span className="wind-control__filled-label" aria-hidden="true">Wind</span>
+            <span className="wind-control__filled-marker" />
+          </span>
+          <span className="wind-control__empty-marker" aria-hidden="true" />
+          <span className="wind-control__label" aria-hidden="true">Wind</span>
+          <output className="wind-control__value">{Math.round(windStrength)}</output>
+          <input
+            className="wind-control__range"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={windStrength}
+            aria-label="Wind strength"
+            aria-valuetext={`${Math.round(windStrength)} out of 100`}
+            onChange={(event) => {
+              setStrength(Number(event.currentTarget.value));
+            }}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              const input = event.currentTarget;
+              const box = input.getBoundingClientRect();
+              const now = performance.now();
+              drag.current = {
+                active: true,
+                left: box.left,
+                width: box.width,
+                lastX: event.clientX,
+                lastTime: now,
+                velocity: 0,
+              };
+              input.focus();
+              input.setPointerCapture(event.pointerId);
+              setIsDragging(true);
+              setElasticPull(0);
+              setStrength(((event.clientX - box.left) / box.width) * 100);
+            }}
+            onPointerMove={(event) => {
+              if (!drag.current.active) return;
+              const now = performance.now();
+              const elapsed = Math.max(1,now - drag.current.lastTime);
+              const velocity = (event.clientX - drag.current.lastX) / elapsed;
+              const raw = (event.clientX - drag.current.left) / drag.current.width;
+              const excess = raw < 0 ? raw * drag.current.width
+                : raw > 1 ? (raw - 1) * drag.current.width : 0;
+              const directedVelocity = (raw <= 0 && velocity < 0)
+                || (raw >= 1 && velocity > 0) ? velocity * 4.6 : 0;
+              const pull = Math.max(-18,Math.min(18,excess * .24 + directedVelocity));
+              drag.current.lastX = event.clientX;
+              drag.current.lastTime = now;
+              drag.current.velocity = velocity;
+              setElasticPull(pull);
+              setStrength(raw * 100);
+            }}
+            onPointerUp={(event) => {
+              drag.current.active = false;
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+              }
+              setIsDragging(false);
+              setElasticPull(0);
+            }}
+            onPointerCancel={() => {
+              drag.current.active = false;
+              setIsDragging(false);
+              setElasticPull(0);
+            }}
+          />
+        </label>
+      </section>
+      <section className="reference-experience" aria-label="Original grass reference video">
+        <figure className="grass-stage reference-stage">
+          <video
+            className="reference-video"
+            src="/IMG_7400.mp4"
+            poster="/IMG_7400-poster.jpg"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            aria-label="Original footage of ornamental grass moving in the wind"
+          />
+          <figcaption className="visually-hidden">
+            Original reference footage of dense ornamental grass moving outdoors.
+          </figcaption>
+        </figure>
+      </section>
     </div>
   );
 }
