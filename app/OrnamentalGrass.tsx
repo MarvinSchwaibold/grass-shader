@@ -976,15 +976,17 @@ export function OrnamentalGrass() {
               coastal wind.
             </figcaption>
           </figure>
-          <div className="wind-drawer">
+          <div
+            className={`wind-drawer${isDragging ? " is-dragging" : ""}`}
+            style={{
+              "--wind-fill": windFill,
+              "--wind-pull": `${elasticPull * .725}px`,
+              "--wind-stretch": 1 + Math.abs(elasticPull) * .003,
+              transformOrigin: elasticPull < 0 ? "right center" : "left center",
+            } as CSSProperties}
+          >
             <label
-              className={`wind-control${isDragging ? " is-dragging" : ""}${windStrength >= 100 ? " is-max" : ""}`}
-              style={{
-                "--wind-fill": windFill,
-                "--wind-pull": `${elasticPull * .725}px`,
-                "--wind-stretch": 1 + Math.abs(elasticPull) * .003,
-                transformOrigin: elasticPull < 0 ? "right center" : "left center",
-              } as CSSProperties}
+              className={`wind-control${windStrength >= 100 ? " is-max" : ""}`}
             >
           <span className="wind-control__progress" aria-hidden="true">
             <span className="wind-control__filled-label" aria-hidden="true">Wind</span>

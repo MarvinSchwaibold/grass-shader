@@ -48,6 +48,9 @@ body {
 }
 
 .wind-drawer {
+  --wind-fill: 50%;
+  --wind-pull: 0px;
+  --wind-stretch: 1;
   --wind-shell-inset: 3px;
   --wind-shell-radius: 14px;
   position: absolute;
@@ -60,7 +63,13 @@ body {
   border-radius: var(--wind-shell-radius);
   background: #ffffff;
   box-shadow: 0 10px 28px rgb(18 25 17 / 11%);
-  transform: translateY(-50%);
+  transform: translateY(-50%) translateX(var(--wind-pull)) scaleX(var(--wind-stretch));
+  transition: transform 775ms cubic-bezier(.12, 2.0625, .22, 1);
+  will-change: transform;
+}
+
+.wind-drawer.is-dragging {
+  transition: none;
 }
 
 .reference-experience {
@@ -155,9 +164,6 @@ body {
 }
 
 .wind-control {
-  --wind-fill: 50%;
-  --wind-pull: 0px;
-  --wind-stretch: 1;
   position: relative;
   display: block;
   width: 100%;
@@ -168,13 +174,7 @@ body {
   color: #ffffff;
   font: 500 8.8px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   letter-spacing: -.02em;
-  transform: translateX(var(--wind-pull)) scaleX(var(--wind-stretch));
-  transition: transform 775ms cubic-bezier(.12, 2.0625, .22, 1);
   user-select: none;
-}
-
-.wind-control.is-dragging {
-  transition: none;
 }
 
 .wind-control__progress {
