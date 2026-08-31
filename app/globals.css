@@ -46,15 +46,48 @@ body {
 
 .reference-stage-shell {
   position: relative;
+  isolation: isolate;
 }
 
-.reference-map-stack {
+.reference-stage {
+  z-index: 2;
+}
+
+.reference-media-tray {
   position: absolute;
-  top: 0;
-  left: calc(100% + 12px);
+  z-index: 1;
+  top: 18px;
+  right: -16px;
   display: grid;
-  width: clamp(34px, 2.66vw, 43px);
-  gap: 5px;
+  width: clamp(32px, 2.35vw, 38px);
+  padding: 5px;
+  gap: 3px;
+  border: 1px solid rgb(24 31 21 / 9%);
+  border-radius: 10px;
+  background: #ffffff;
+  transform-origin: center right;
+  will-change: transform, box-shadow;
+}
+
+.reference-media-tray.is-open {
+  z-index: 3;
+}
+
+.reference-tray-peek {
+  position: absolute;
+  z-index: 2;
+  inset: 0 0 0 auto;
+  width: 11px;
+  padding: 0;
+  border: 0;
+  border-radius: 0 10px 10px 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.reference-media-tray.is-open .reference-tray-peek {
+  pointer-events: none;
+  opacity: 0;
 }
 
 .reference-map-button {
@@ -63,12 +96,17 @@ body {
   padding: 0;
   overflow: hidden;
   border: 0;
-  border-radius: 6px;
+  border-radius: 5px;
   outline: 0;
   background: #192818;
   box-shadow: 0 0 0 1px rgb(15 20 13 / 10%);
   cursor: pointer;
-  transition: transform 160ms cubic-bezier(.2,.75,.25,1), box-shadow 160ms ease;
+  transition: opacity 140ms ease, transform 160ms cubic-bezier(.2,.75,.25,1), box-shadow 160ms ease;
+}
+
+.reference-media-tray:not(.is-open) .reference-map-button {
+  pointer-events: none;
+  opacity: 0;
 }
 
 .reference-map-button:hover {
@@ -284,18 +322,22 @@ body {
   .wind-control__filled-label,
   .wind-control__label { left: 10px; }
   .wind-control__value { right: 10px; }
-  .reference-map-stack {
-    top: 8px;
-    right: 8px;
-    left: auto;
-    width: 25px;
-    gap: 4px;
+  .reference-media-tray {
+    top: 12px;
+    right: -12px;
+    width: 24px;
+    padding: 4px;
+    gap: 3px;
+    border-radius: 8px;
   }
   .reference-map {
     border: 0;
   }
   .reference-map-button {
-    border: 1px solid #ffffff;
     border-radius: 4px;
   }
+}
+
+@media (min-width: 1400px) {
+  .reference-media-tray { right: -19px; }
 }

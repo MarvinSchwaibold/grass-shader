@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { motion } from "motion/react";
 
 const WIND_MIN = .35;
 const WIND_MAX = 3.6;
@@ -943,6 +944,7 @@ export function OrnamentalGrass() {
   });
   const activeStudy: StudyId = "study-7400";
   const [activeReferenceId, setActiveReferenceId] = useState("recording");
+  const [isReferenceTrayOpen, setIsReferenceTrayOpen] = useState(false);
   const [windStrength, setWindStrength] = useState(DEFAULT_WIND_STRENGTH);
   const [elasticPull, setElasticPull] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -951,6 +953,23 @@ export function OrnamentalGrass() {
     try { return start(ref.current,windAmount,activeStudy); }
     catch (error) { console.error("Unable to start the ornamental grass field",error); }
   },[activeStudy]);
+  useEffect(() => {
+    if (!isReferenceTrayOpen) return;
+    const dismissTray = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-reference-tray]")) return;
+      setIsReferenceTrayOpen(false);
+    };
+    const dismissTrayWithKeyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsReferenceTrayOpen(false);
+    };
+    document.addEventListener("pointerdown",dismissTray);
+    document.addEventListener("keydown",dismissTrayWithKeyboard);
+    return () => {
+      document.removeEventListener("pointerdown",dismissTray);
+      document.removeEventListener("keydown",dismissTrayWithKeyboard);
+    };
+  },[isReferenceTrayOpen]);
   const activeReference = REFERENCE_MEDIA.find((media) => media.id === activeReferenceId)
     ?? REFERENCE_MEDIA[0];
   const referenceChoices = REFERENCE_MEDIA;
@@ -1084,7 +1103,42 @@ export function OrnamentalGrass() {
               Active real-world reference footage for the generated grass study.
             </figcaption>
           </figure>
-          <aside className="reference-map-stack" aria-label="Reference analysis maps">
+          <motion.aside
+            className={`reference-media-tray${isReferenceTrayOpen ? " is-open" : ""}`}
+            data-reference-tray
+            aria-label="Reference media"
+            initial={false}
+            animate={isReferenceTrayOpen ? {
+              x: 0,
+              y: 0,
+              scale: 1,
+              boxShadow: "0 16px 38px rgb(18 25 17 / 14%)",
+            } : {
+              x: -9,
+              y: 10,
+              scale: .965,
+              boxShadow: "0 0 0 rgb(18 25 17 / 0%)",
+            }}
+            transition={{
+              type: "spring",
+              stiffness: 470,
+              damping: 30,
+              mass: .72,
+            }}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              if (isReferenceTrayOpen && event.target === event.currentTarget) {
+                setIsReferenceTrayOpen(false);
+              }
+            }}
+          >
+            <button
+              className="reference-tray-peek"
+              type="button"
+              aria-label="Open reference media"
+              aria-expanded={isReferenceTrayOpen}
+              onClick={() => setIsReferenceTrayOpen(true)}
+            />
             {referenceChoices.map((media) => {
               const selected = activeReference.id === media.id;
               return (
@@ -1094,7 +1148,11 @@ export function OrnamentalGrass() {
                 type="button"
                 aria-label={`Show ${media.caption}`}
                 aria-pressed={selected}
-                onClick={() => setActiveReferenceId(media.id)}
+                tabIndex={isReferenceTrayOpen ? 0 : -1}
+                onClick={() => {
+                  setActiveReferenceId(media.id);
+                  setIsReferenceTrayOpen(false);
+                }}
               >
                 {media.kind === "video" ? (
                   <video
@@ -1118,7 +1176,7 @@ export function OrnamentalGrass() {
               </button>
               );
             })}
-          </aside>
+          </motion.aside>
         </div>
         <p className="reference-caption" aria-live="polite">{activeReference.caption}</p>
       </section>
