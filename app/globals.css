@@ -53,8 +53,8 @@ body {
   top: 0;
   left: calc(100% + 12px);
   display: grid;
-  width: clamp(48px, 3.8vw, 61px);
-  gap: 7px;
+  width: clamp(34px, 2.66vw, 43px);
+  gap: 5px;
 }
 
 .reference-map-button {
@@ -63,7 +63,7 @@ body {
   padding: 0;
   overflow: hidden;
   border: 0;
-  border-radius: 9px;
+  border-radius: 6px;
   outline: 0;
   background: #192818;
   box-shadow: 0 0 0 1px rgb(15 20 13 / 10%);
@@ -283,14 +283,14 @@ body {
     top: 8px;
     right: 8px;
     left: auto;
-    width: 36px;
-    gap: 5px;
+    width: 25px;
+    gap: 4px;
   }
   .reference-map {
     border: 0;
   }
   .reference-map-button {
     border: 1px solid #ffffff;
-    border-radius: 6px;
+    border-radius: 4px;
   }
 }
