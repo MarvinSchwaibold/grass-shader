@@ -159,7 +159,7 @@ in float vT;
 in float vShade;
 in float vGust;
 uniform vec3 uCamera;
-uniform sampler2D uPixelMap;
+uniform sampler2D uReferenceColorField;
 uniform vec2 uResolution;
 out vec4 outColor;
 
@@ -223,17 +223,17 @@ void main() {
   color += silver * specular * (1.10 + vGust * 0.36) * smoothstep(0.20, 1.0, vT);
   color *= mix(1.0, 1.06, smoothstep(0.16, 0.78, vT));
 
-  // The supplied hex map is the sole chroma source. Existing blade shading
-  // changes value only, preserving strand separation without another palette.
-  vec2 mapUV = clamp(gl_FragCoord.xy / uResolution, 0.0, 1.0);
-  vec3 targetField = texture(uPixelMap, mapUV).rgb;
-  float targetLuma = dot(targetField, vec3(0.2126, 0.7152, 0.0722));
+  // Subtle screen-space color inheritance from the blurred real reference.
+  // The renderer retains its high-frequency blade lighting and specular detail.
+  vec2 fieldUV = clamp(gl_FragCoord.xy / uResolution, 0.0, 1.0);
+  vec3 referenceField = texture(uReferenceColorField, fieldUV).rgb;
+  float referenceLuma = dot(referenceField, vec3(0.2126, 0.7152, 0.0722));
   float sourceLuma = dot(color, vec3(0.2126, 0.7152, 0.0722));
-  vec3 targetChroma = targetField / max(targetLuma, 0.055);
-  float mappedLuma = mix(targetLuma, sourceLuma, 0.72);
-  color = targetChroma * mappedLuma;
-  float peak = max(color.r, max(color.g, color.b));
-  color /= max(1.0, peak / 0.9765);
+  vec3 referenceChroma = referenceField / max(referenceLuma, 0.055);
+  float spatialLuma = mix(sourceLuma, referenceLuma, 0.28);
+  vec3 spatialTint = referenceChroma * spatialLuma;
+  color = mix(color, spatialTint, 0.34);
+  color = min(color, silver);
   outColor = vec4(color, 1.0);
 }`;
 
@@ -639,19 +639,19 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
   const baseGrass = baseGrassGeometry(gl,mobile ? 112000 : 188000);
   const moundGrass = moundGrassGeometry(gl,mobile ? 82000 : 136000);
   const terrain = createTerrainTexture(gl);
-  const pixelMap = createColorFieldTexture(
-    gl,"/grass-hex-map.png",[128,137,65,255],
+  const referenceColorField = createColorFieldTexture(
+    gl,"/reference-color-field.png",[107,123,65,255],
   );
   const view = lookAt(camera,[0,.30,-2.35]);
   const grassVP = gl.getUniformLocation(grassProgram,"uVP");
   const grassTerrain = gl.getUniformLocation(grassProgram,"uTerrain");
-  const pixelMapUniform = gl.getUniformLocation(grassProgram,"uPixelMap");
+  const referenceColorFieldUniform = gl.getUniformLocation(grassProgram,"uReferenceColorField");
   const resolutionUniform = gl.getUniformLocation(grassProgram,"uResolution");
   const time = gl.getUniformLocation(grassProgram,"uTime");
   const windScale = gl.getUniformLocation(grassProgram,"uWindScale");
   const cameraUniform = gl.getUniformLocation(grassProgram,"uCamera");
   if (
-    !grassVP || !grassTerrain || !pixelMapUniform || !resolutionUniform || !time || !windScale
+    !grassVP || !grassTerrain || !referenceColorFieldUniform || !resolutionUniform || !time || !windScale
     || !cameraUniform
   ) {
     throw new Error("Missing uniforms");
@@ -683,11 +683,11 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D,terrain.texture);
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D,pixelMap.texture);
+    gl.bindTexture(gl.TEXTURE_2D,referenceColorField.texture);
     gl.useProgram(grassProgram);
     gl.uniformMatrix4fv(grassVP,false,vp);
     gl.uniform1i(grassTerrain,0);
-    gl.uniform1i(pixelMapUniform,1);
+    gl.uniform1i(referenceColorFieldUniform,1);
     gl.uniform2f(resolutionUniform,width,height);
     gl.uniform1f(time,windClock);
     gl.uniform1f(windScale,amount);
@@ -709,8 +709,8 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     gl.deleteVertexArray(moundGrass.vao);
     terrain.image.onload = null;
     gl.deleteTexture(terrain.texture);
-    pixelMap.image.onload = null;
-    gl.deleteTexture(pixelMap.texture);
+    referenceColorField.image.onload = null;
+    gl.deleteTexture(referenceColorField.texture);
     gl.deleteProgram(grassProgram);
   };
 }
