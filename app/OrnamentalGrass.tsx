@@ -159,9 +159,7 @@ in float vT;
 in float vShade;
 in float vGust;
 uniform vec3 uCamera;
-uniform sampler2D uGradientMap;
 uniform sampler2D uPixelMap;
-uniform sampler2D uColorRelief;
 uniform vec2 uResolution;
 out vec4 outColor;
 
@@ -225,22 +223,17 @@ void main() {
   color += silver * specular * (1.10 + vGust * 0.36) * smoothstep(0.20, 1.0, vT);
   color *= mix(1.0, 1.06, smoothstep(0.16, 0.78, vT));
 
-  // Spatial color transfer. All three maps share the reference frame's
-  // normalized coordinates; only low-frequency color/value is transferred so
-  // blade lighting, separation, and specular detail remain intact.
+  // The supplied hex map is the sole chroma source. Existing blade shading
+  // changes value only, preserving strand separation without another palette.
   vec2 mapUV = clamp(gl_FragCoord.xy / uResolution, 0.0, 1.0);
-  vec3 gradientField = textureLod(uGradientMap, mapUV, 0.0).rgb;
-  vec3 pixelField = textureLod(uPixelMap, mapUV, 0.65).rgb;
-  vec3 reliefField = textureLod(uColorRelief, mapUV, 4.0).rgb;
-  vec3 targetField = gradientField * 0.48 + pixelField * 0.34 + reliefField * 0.18;
+  vec3 targetField = texture(uPixelMap, mapUV).rgb;
   float targetLuma = dot(targetField, vec3(0.2126, 0.7152, 0.0722));
   float sourceLuma = dot(color, vec3(0.2126, 0.7152, 0.0722));
   vec3 targetChroma = targetField / max(targetLuma, 0.055);
-  float localExposure = mix(1.0, clamp(targetLuma / 0.49, 0.48, 1.58), 0.62);
-  vec3 transferred = color * mix(vec3(1.0), targetChroma, 0.72) * localExposure;
-  float highlightPreserve = smoothstep(0.72, 0.98, sourceLuma);
-  color = mix(color, transferred, 0.82 - highlightPreserve * 0.20);
-  color = min(color, silver);
+  float mappedLuma = mix(targetLuma, sourceLuma, 0.72);
+  color = targetChroma * mappedLuma;
+  float peak = max(color.r, max(color.g, color.b));
+  color /= max(1.0, peak / 0.9765);
   outColor = vec4(color, 1.0);
 }`;
 
@@ -589,20 +582,18 @@ function createTerrainTexture(gl: WebGL2RenderingContext) {
   gl.bindTexture(gl.TEXTURE_2D,texture);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
   gl.texImage2D(
     gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,
     new Uint8Array([132,111,78,255]),
   );
-  gl.generateMipmap(gl.TEXTURE_2D);
   const image = new Image();
   image.decoding = "async";
   image.onload = () => {
     gl.bindTexture(gl.TEXTURE_2D,texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);
-    gl.generateMipmap(gl.TEXTURE_2D);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
   };
   image.src = "/topography-terrain.png";
@@ -648,28 +639,19 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
   const baseGrass = baseGrassGeometry(gl,mobile ? 112000 : 188000);
   const moundGrass = moundGrassGeometry(gl,mobile ? 82000 : 136000);
   const terrain = createTerrainTexture(gl);
-  const gradientMap = createColorFieldTexture(
-    gl,"/gradient-map.png",[147,152,57,255],
-  );
   const pixelMap = createColorFieldTexture(
-    gl,"/pixel-hex-map.png",[136,143,65,255],
-  );
-  const colorRelief = createColorFieldTexture(
-    gl,"/color-relief-map.png",[121,128,53,255],
+    gl,"/grass-hex-map.png",[128,137,65,255],
   );
   const view = lookAt(camera,[0,.30,-2.35]);
   const grassVP = gl.getUniformLocation(grassProgram,"uVP");
   const grassTerrain = gl.getUniformLocation(grassProgram,"uTerrain");
-  const gradientMapUniform = gl.getUniformLocation(grassProgram,"uGradientMap");
   const pixelMapUniform = gl.getUniformLocation(grassProgram,"uPixelMap");
-  const colorReliefUniform = gl.getUniformLocation(grassProgram,"uColorRelief");
   const resolutionUniform = gl.getUniformLocation(grassProgram,"uResolution");
   const time = gl.getUniformLocation(grassProgram,"uTime");
   const windScale = gl.getUniformLocation(grassProgram,"uWindScale");
   const cameraUniform = gl.getUniformLocation(grassProgram,"uCamera");
   if (
-    !grassVP || !grassTerrain || !gradientMapUniform || !pixelMapUniform
-    || !colorReliefUniform || !resolutionUniform || !time || !windScale
+    !grassVP || !grassTerrain || !pixelMapUniform || !resolutionUniform || !time || !windScale
     || !cameraUniform
   ) {
     throw new Error("Missing uniforms");
@@ -701,17 +683,11 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D,terrain.texture);
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D,gradientMap.texture);
-    gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D,pixelMap.texture);
-    gl.activeTexture(gl.TEXTURE3);
-    gl.bindTexture(gl.TEXTURE_2D,colorRelief.texture);
     gl.useProgram(grassProgram);
     gl.uniformMatrix4fv(grassVP,false,vp);
     gl.uniform1i(grassTerrain,0);
-    gl.uniform1i(gradientMapUniform,1);
-    gl.uniform1i(pixelMapUniform,2);
-    gl.uniform1i(colorReliefUniform,3);
+    gl.uniform1i(pixelMapUniform,1);
     gl.uniform2f(resolutionUniform,width,height);
     gl.uniform1f(time,windClock);
     gl.uniform1f(windScale,amount);
@@ -733,12 +709,8 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     gl.deleteVertexArray(moundGrass.vao);
     terrain.image.onload = null;
     gl.deleteTexture(terrain.texture);
-    gradientMap.image.onload = null;
     pixelMap.image.onload = null;
-    colorRelief.image.onload = null;
-    gl.deleteTexture(gradientMap.texture);
     gl.deleteTexture(pixelMap.texture);
-    gl.deleteTexture(colorRelief.texture);
     gl.deleteProgram(grassProgram);
   };
 }
