@@ -910,7 +910,7 @@ export function OrnamentalGrass() {
     lastTime: 0,
     velocity: 0,
   });
-  const [activeStudy, setActiveStudy] = useState<StudyId>("study-7400");
+  const activeStudy: StudyId = "study-7400";
   const [windStrength, setWindStrength] = useState(DEFAULT_WIND_STRENGTH);
   const [elasticPull, setElasticPull] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -920,8 +920,6 @@ export function OrnamentalGrass() {
     catch (error) { console.error("Unable to start the ornamental grass field",error); }
   },[activeStudy]);
   const activeReference = STUDIES[activeStudy];
-  const alternateStudy: StudyId = activeStudy === "study-7400" ? "study-7401" : "study-7400";
-  const alternateReference = STUDIES[alternateStudy];
   const windFill = `${windStrength}%`;
   const setStrength = (strength: number) => {
     const next = Math.max(0,Math.min(100,strength));
@@ -936,9 +934,7 @@ export function OrnamentalGrass() {
             ref={ref}
             className="grass-canvas"
             role="img"
-            aria-label={activeStudy === "study-7400"
-              ? "Mounded ornamental grass moving continuously in layered coastal wind"
-              : "Compact upright ornamental grass moving continuously in localized wind"}
+            aria-label="Mounded ornamental grass moving continuously in layered coastal wind"
           />
           <div className="grass-fallback" aria-hidden="true" />
           <figcaption className="visually-hidden">
@@ -1030,7 +1026,6 @@ export function OrnamentalGrass() {
         <div className="reference-stage-shell">
           <figure className="grass-stage reference-stage">
             <video
-              key={activeStudy}
               className="reference-video"
               src={activeReference.video}
               poster={activeReference.poster}
@@ -1045,25 +1040,23 @@ export function OrnamentalGrass() {
               Active real-world reference footage for the generated grass study.
             </figcaption>
           </figure>
-          <button
-            className="study-switcher"
-            type="button"
-            aria-label={`Switch to ${alternateReference.caption}`}
-            onClick={() => setActiveStudy(alternateStudy)}
-          >
-            <video
-              key={alternateStudy}
-              className="study-switcher__video"
-              src={alternateReference.video}
-              poster={alternateReference.poster}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="metadata"
-              aria-hidden="true"
+          <aside className="reference-map-stack" aria-label="Reference analysis maps">
+            <img
+              className="reference-map"
+              src="/pixel-hex-map.png"
+              alt="Pixel hex color map"
             />
-          </button>
+            <img
+              className="reference-map"
+              src="/color-relief-map.png"
+              alt="Color relief map"
+            />
+            <img
+              className="reference-map"
+              src="/gradient-map.png"
+              alt="Gradient color map"
+            />
+          </aside>
         </div>
         <p className="reference-caption" aria-live="polite">{activeReference.caption}</p>
       </section>
