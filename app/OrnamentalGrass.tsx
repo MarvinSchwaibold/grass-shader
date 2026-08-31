@@ -34,11 +34,11 @@ void main() {
   float terrainLevel = terrainShape(aRoot.xz);
   float terrainX = terrainShape(aRoot.xz + vec2(0.16, 0.0));
   float terrainZ = terrainShape(aRoot.xz + vec2(0.0, 0.16));
-  float terrainY = (terrainLevel - 0.5) * 0.40;
-  vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) * 0.40 / 0.16;
+  float terrainY = (terrainLevel - 0.5) * 0.58;
+  vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) * 0.58 / 0.16;
   float slopeAmount = smoothstep(0.018, 0.18, length(terrainGradient));
   vec2 downhill = normalize(-terrainGradient + vec2(0.0001));
-  float height = aShape.x * mix(0.96, 1.025, terrainLevel);
+  float height = aShape.x * mix(0.94, 1.06, terrainLevel);
   float width = aShape.y;
   vec2 radial = vec2(cos(aShape.z), sin(aShape.z));
   vec2 bladeSide = vec2(cos(aShape.w), sin(aShape.w));
@@ -65,8 +65,8 @@ void main() {
   float tip = pow(t, 2.15);
   float taper = pow(max(1.0 - t, 0.0), 0.66);
   float lean = aMotion.w;
-  vec2 bendDirection = normalize(radial * (1.08 - wind * 0.48)
-    + windDirection * (0.10 + wind * 0.70)
+  vec2 bendDirection = normalize(radial * (1.22 - wind * 0.34)
+    + windDirection * (0.06 + wind * 0.46)
     + downhill * slopeAmount * 0.11);
   float curlAngle = sin(aMotion.x * 1.37) * 0.22 * arch
     + sin(aMotion.x * 0.71) * 0.06 * tip;
@@ -79,8 +79,8 @@ void main() {
   vec2 rippleDirection = vec2(-windDirection.y, windDirection.x);
   float ripple = sin(aMotion.x + uTime * 2.25 + t * 2.7) * 0.018 * height;
 
-  float naturalReach = height * (0.065 * t + lean * 0.80 * arch);
-  float gustReach = height * wind * (0.18 + gust * 0.13) * curve;
+  float naturalReach = height * (0.050 * t + lean * 0.62 * arch);
+  float gustReach = height * wind * (0.13 + gust * 0.10) * curve;
   vec3 world = aRoot;
   world.y += terrainY;
   world.xz += curveDirection * naturalReach;
@@ -188,7 +188,7 @@ vec2 terrainUV(vec2 xz) {
 float terrainHeight(vec2 xz) {
   vec3 sampleColor = textureLod(uTerrain, clamp(terrainUV(xz), 0.0, 1.0), 5.0).rgb;
   float luminance = dot(sampleColor, vec3(0.2126, 0.7152, 0.0722));
-  return (smoothstep(0.19, 0.76, luminance) - 0.5) * 0.40;
+  return (smoothstep(0.19, 0.76, luminance) - 0.5) * 0.58;
 }
 void main() {
   vWorld = aPosition;
@@ -259,7 +259,7 @@ const continuityClumps: Clump[] = Array.from({ length: 78 }, (_, index) => {
     .54 + seeded(index + 300, 7) * .32,
     .31 + seeded(index + 300, 8) * .075,
     .12 + seeded(index + 300, 9) * .52,
-    .70 + seeded(index + 300, 10) * .15,
+    .60 + seeded(index + 300, 10) * .12,
   ];
 });
 
@@ -380,9 +380,9 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       const offset = index * 11;
       const angle = seeded(index, 1) * Math.PI * 2;
       const radialSeed = seeded(index, 2);
-      const rootRatio = seeded(index, 17) < .42
-        ? Math.pow(radialSeed, 1.34) * .88
-        : Math.pow(radialSeed, .62);
+      const rootRatio = seeded(index, 17) < .55
+        ? Math.pow(radialSeed, 1.42) * .90
+        : Math.pow(radialSeed, .72);
       const brokenEdge = 1
         + Math.sin(angle * 3 + clumpPhase) * .18
         + Math.sin(angle * 5 - clumpPhase * .63) * .11;
@@ -424,7 +424,9 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
         && Math.sin(angle * 3 + clumpPhase) > .42 ? 1 : 0;
       const edgeLength = .90 + (1 - rootRatio) * .12
         + Math.max(-.13,Math.min(.13,(rootX * flowX + rootZ * flowZ) / meanRadius * .12));
-      let height = meanRadius * .98 * strandNoise * edgeLength
+      const structuralLength = meanRadius <= 1.45
+        ? meanRadius : 1.45 + (meanRadius - 1.45) * .28;
+      let height = structuralLength * .98 * strandNoise * edgeLength
         * irregularProfile * strayLength * lengthScale * clumpLength
         * (1 - foreground * .10) * (1 - flattenedMat * .47)
         * (1 - contactPatch * .23) * (1 - baseBlade * .19)
@@ -434,7 +436,11 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       if (species > .5) {
         height *= .76;
       }
-      const rootLift = .018 + (1 - rootRatio) * .045 * (1 - collapse * .54)
+      const roundedShoulder = Math.pow(Math.max(0,1 - rootRatio),1.28);
+      const moundLift = roundedShoulder * meanRadius * .29
+        * (1 - flattenedMat * .84);
+      const rootLift = .018 + moundLift
+        + (1 - rootRatio) * .045 * (1 - collapse * .54)
         + seeded(index, 12) * .018;
       instances[offset] = worldRootX;
       instances[offset+1] = rootLift;
@@ -541,7 +547,7 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
   const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
   const groundProgram = program(gl,groundVertex,groundFragment);
-  const requested = matchMedia("(max-width:700px)").matches ? 112000 : 172000;
+  const requested = matchMedia("(max-width:700px)").matches ? 122000 : 196000;
   const grass = grassGeometry(gl,requested);
   const ground = groundGeometry(gl);
   const terrain = createTerrainTexture(gl);
