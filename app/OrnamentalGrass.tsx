@@ -36,6 +36,7 @@ void main() {
   float terrainZ = terrainShape(aRoot.xz + vec2(0.0, 0.16));
   float terrainY = (terrainLevel - 0.5) * 0.58;
   vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) * 0.58 / 0.16;
+  vec3 terrainNormal = normalize(vec3(-terrainGradient.x, 1.0, -terrainGradient.y));
   float slopeAmount = smoothstep(0.018, 0.18, length(terrainGradient));
   vec2 downhill = normalize(-terrainGradient + vec2(0.0001));
   float height = aShape.x * mix(0.94, 1.06, terrainLevel);
@@ -95,21 +96,25 @@ void main() {
   float gustReach = height * wind * (0.12 + gust * 0.10 + peakGust * 0.18) * curve;
   vec3 world = aRoot;
   world.y += terrainY;
+  // Both vegetation layers emerge from the hidden terrain normal before
+  // gravity and wind bend them across the surface.
+  world.xz += terrainNormal.xz * height * t * (0.30 - arch * 0.08);
   world.xz += curveDirection * naturalReach;
   world.xz += windDirection * gustReach;
   world.xz += rippleDirection * ripple * tip;
   float verticalLift = max(0.08,
     1.0 - lean * 0.58 * arch - wind * 0.16 * tip - peakGust * 0.42 * tip
   );
-  world.y += height * t * verticalLift;
+  world.y += height * t * verticalLift * terrainNormal.y;
   world.xz += bladeSide * side * width * taper;
 
   vec2 horizontalTangent = curveDirection * (lean * 1.02 + 0.08)
     + windDirection * (wind * (0.36 + gust * 0.14) + peakGust * 0.42);
   vec3 tangent = normalize(vec3(
-    horizontalTangent.x * arch,
-    max(0.08, 1.0 - lean * 0.70 * arch - wind * 0.28 * tip - peakGust * 0.48 * tip),
-    horizontalTangent.y * arch
+    horizontalTangent.x * arch + terrainNormal.x * (1.0 - arch) * 0.34,
+    max(0.08, 1.0 - lean * 0.70 * arch - wind * 0.28 * tip - peakGust * 0.48 * tip)
+      * terrainNormal.y,
+    horizontalTangent.y * arch + terrainNormal.z * (1.0 - arch) * 0.34
   ));
   vNormal = normalize(cross(vec3(bladeSide.x, 0.0, bladeSide.y), tangent));
   vWorld = world;
@@ -192,51 +197,6 @@ void main() {
   outColor = vec4(color, 1.0);
 }`;
 
-const groundVertex = `#version 300 es
-precision highp float;
-layout(location=0) in vec2 aPosition;
-uniform mat4 uVP;
-uniform sampler2D uTerrain;
-out vec2 vWorld;
-vec2 terrainUV(vec2 xz) {
-  return vec2((xz.x + 10.0) / 20.0, (12.0 - xz.y) / 34.0);
-}
-float terrainHeight(vec2 xz) {
-  vec3 sampleColor = textureLod(uTerrain, clamp(terrainUV(xz), 0.0, 1.0), 5.0).rgb;
-  float luminance = dot(sampleColor, vec3(0.2126, 0.7152, 0.0722));
-  return (smoothstep(0.19, 0.76, luminance) - 0.5) * 0.58;
-}
-void main() {
-  vWorld = aPosition;
-  gl_Position = uVP * vec4(aPosition.x, terrainHeight(aPosition) - 0.035, aPosition.y, 1.0);
-}`;
-
-const groundFragment = `#version 300 es
-precision highp float;
-in vec2 vWorld;
-out vec4 outColor;
-float hash(vec2 p) {
-  p = fract(p * vec2(123.34, 456.21));
-  p += dot(p, p + 45.32);
-  return fract(p.x * p.y);
-}
-void main() {
-  float fine = hash(floor(vWorld * 13.0));
-  float broad = sin(vWorld.x * 0.52 + vWorld.y * 0.29) * 0.5 + 0.5;
-  float fiberA = pow(0.5 + 0.5 * sin(vWorld.x * 31.0 + vWorld.y * 4.1), 18.0);
-  float fiberB = pow(0.5 + 0.5 * sin(vWorld.x * 8.6 - vWorld.y * 27.0), 19.0);
-  float fiberC = pow(0.5 + 0.5 * sin(vWorld.x * 21.0 + vWorld.y * 17.0), 22.0);
-  float fiberD = pow(0.5 + 0.5 * sin(vWorld.x * 42.0 - vWorld.y * 6.4), 25.0);
-  vec3 deepest = vec3(0.1216, 0.2000, 0.1255);
-  vec3 shadowGrass = vec3(0.1804, 0.2745, 0.1686);
-  vec3 lifted = vec3(0.2510, 0.3451, 0.2235);
-  vec3 color = mix(deepest, shadowGrass, 0.34 + fine * 0.28 + broad * 0.20);
-  float compressedFibers = fiberA * 0.30 + fiberB * 0.24 + fiberC * 0.18 + fiberD * 0.14;
-  color = mix(color, lifted, compressedFibers * (0.66 + broad * 0.34));
-  color *= 1.07;
-  outColor = vec4(color, 1.0);
-}`;
-
 type Vec3 = [number, number, number];
 type Clump = [
   number, number, number, number, number,
@@ -260,29 +220,10 @@ const featuredClumps: Clump[] = [
   [-3.92,-15.06,1.86,.42,.38,.62,.97,.34,.42,.62],[1.58,-12.04,2.42,.50,-.33,.25,.99,.36,.58,.58],[-.62,-8.68,3.04,.62,.18,.82,.98,.38,.46,.62],[3.08,-5.76,2.74,.68,-.25,.42,.99,.36,.66,.58],[-3.18,-3.02,3.12,.78,.30,.95,.98,.38,.52,.60],[.42,.38,3.82,.92,-.18,.35,.99,.38,.62,.56],[-1.68,3.72,4.58,1.05,.22,.78,.99,.39,.50,.54],[1.04,7.08,5.96,1.34,-.12,.28,.99,.39,.59,.52],
 ];
 
-// A low, overlapping layer of the same fine grass keeps every trough
-// vegetated. The featured mounds rise through it, so dark areas remain blades
-// in occlusion instead of exposed ground.
-const continuityClumps: Clump[] = Array.from({ length: 126 }, (_, index) => {
-  const columns = 7;
-  const row = Math.floor(index / columns);
-  const column = index % columns;
-  const stagger = row % 2 ? .42 : 0;
-  return [
-    -5.72 + column * 1.88 + stagger + (seeded(index + 300, 1) - .5) * .38,
-    -19.48 + row * 1.76 + (seeded(index + 300, 2) - .5) * .36,
-    1.48 + seeded(index + 300, 3) * .30,
-    1.34 + seeded(index + 300, 4) * .28,
-    (seeded(index + 300, 5) - .5) * .92,
-    seeded(index + 300, 6) * Math.PI * 2,
-    .54 + seeded(index + 300, 7) * .32,
-    .34 + seeded(index + 300, 8) * .055,
-    .12 + seeded(index + 300, 9) * .52,
-    .62 + seeded(index + 300, 10) * .10,
-  ];
-});
-
-const clumps: Clump[] = [...featuredClumps, ...continuityClumps];
+// Only the raised, long-grass cushions belong to the mound layer. The narrow
+// channel entries from the old system are intentionally excluded; a separate
+// stratified base layer now covers those troughs continuously.
+const moundClumps = featuredClumps.filter((clump) => clump[7] >= .405);
 
 function shader(gl: WebGL2RenderingContext, type: number, source: string) {
   const value = gl.createShader(type);
@@ -360,7 +301,7 @@ function seeded(index: number, salt: number) {
   return value - Math.floor(value);
 }
 
-function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
+function moundGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
   const vao = gl.createVertexArray();
   const bladeBuffer = gl.createBuffer();
   const instanceBuffer = gl.createBuffer();
@@ -373,14 +314,14 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
   const weight = (clump: Clump, clumpIndex: number) => clump[2] * clump[3] * clump[7]
     * (clump[7] < .405 ? .82 : 1)
     * (.68 + seeded(clumpIndex, 31) * .72);
-  const totalWeight = clumps.reduce((sum, clump, clumpIndex) => sum + weight(clump, clumpIndex), 0);
-  const counts = clumps.map((clump, clumpIndex) => Math.floor(requested * weight(clump, clumpIndex) / totalWeight));
+  const totalWeight = moundClumps.reduce((sum, clump, clumpIndex) => sum + weight(clump, clumpIndex), 0);
+  const counts = moundClumps.map((clump, clumpIndex) => Math.floor(requested * weight(clump, clumpIndex) / totalWeight));
   let count = counts.reduce((sum, value) => sum + value, 0);
   for (let i=0;count<requested;i=(i+1)%counts.length) { counts[i] += 1; count += 1; }
   const instances = new Float32Array(count * 11);
   let index = 0;
 
-  clumps.forEach(([
+  moundClumps.forEach(([
     centerX,centerZ,radiusX,radiusZ,rotation,flow,collapse,
     density,tone,lengthScale,species = 0,
   ], clumpIndex) => {
@@ -518,31 +459,81 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
   return { vao, bladeBuffer, instanceBuffer, vertices:(segments+1)*2, count };
 }
 
-function groundGeometry(gl: WebGL2RenderingContext) {
+function baseGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
   const vao = gl.createVertexArray();
-  const buffer = gl.createBuffer();
-  if (!vao || !buffer) throw new Error("Ground allocation failed");
-  const columns = 120;
-  const rows = 204;
-  const vertices = new Float32Array(columns * rows * 12);
-  let offset = 0;
+  const bladeBuffer = gl.createBuffer();
+  const instanceBuffer = gl.createBuffer();
+  if (!vao || !bladeBuffer || !instanceBuffer) throw new Error("Base grass allocation failed");
+
+  const segments = 5;
+  const blade = new Float32Array((segments + 1) * 4);
+  for (let segment=0;segment<=segments;segment+=1) {
+    blade.set([-1,segment/segments,1,segment/segments],segment*4);
+  }
+
+  // One jittered blade in every cell guarantees continuous coverage rather
+  // than relying on overlapping tufts to hide a rendered floor.
+  const terrainWidth = 16.8;
+  const terrainDepth = 35.0;
+  const columns = Math.max(1,Math.round(Math.sqrt(requested * terrainWidth / terrainDepth)));
+  const rows = Math.max(1,Math.ceil(requested / columns));
+  const count = columns * rows;
+  const instances = new Float32Array(count * 11);
+  let instance = 0;
   for (let row=0;row<rows;row+=1) {
-    const z0 = -22 + (row / rows) * 34;
-    const z1 = -22 + ((row + 1) / rows) * 34;
     for (let column=0;column<columns;column+=1) {
-      const x0 = -10 + (column / columns) * 20;
-      const x1 = -10 + ((column + 1) / columns) * 20;
-      vertices.set([x0,z0,x1,z0,x0,z1,x0,z1,x1,z0,x1,z1],offset);
-      offset += 12;
+      const offset = instance * 11;
+      const rootX = -8.4 + ((column + .16 + seeded(instance,41) * .68) / columns) * terrainWidth;
+      const rootZ = -23.0 + ((row + .16 + seeded(instance,42) * .68) / rows) * terrainDepth;
+      const regionColumn = Math.floor((rootX + 8.4) / 1.22);
+      const regionRow = Math.floor((rootZ + 23.0) / 1.36);
+      const region = regionRow * 19 + regionColumn;
+      const regionPhase = seeded(region,43) * Math.PI * 2;
+      const compression = seeded(region,44);
+      const fieldDirection = regionPhase
+        + Math.sin(rootX * .24 + rootZ * .11) * .38
+        + Math.cos(rootZ * .19 - rootX * .07) * .24;
+      const tangled = seeded(instance,45) < (.17 + compression * .16) ? 1 : 0;
+      const direction = fieldDirection + (seeded(instance,46) - .5) * .78
+        + tangled * (seeded(instance,47) - .5) * 1.72;
+      const compressedLength = compression > .72 ? .68 : compression < .20 ? 1.08 : .88;
+      const height = (.42 + seeded(instance,48) * .48) * compressedLength;
+      const shade = Math.max(.04,Math.min(.94,
+        .09 + seeded(instance,49) * .54 + (compression < .18 ? .18 : 0)
+      ));
+
+      instances[offset] = rootX;
+      instances[offset+1] = .010 + seeded(instance,50) * .014;
+      instances[offset+2] = rootZ;
+      instances[offset+3] = height;
+      instances[offset+4] = .0046 + seeded(instance,51) * .0042;
+      instances[offset+5] = direction;
+      instances[offset+6] = direction + Math.PI * .5 + (seeded(instance,52) - .5) * .48;
+      instances[offset+7] = seeded(instance,53) * Math.PI * 2;
+      instances[offset+8] = 1 + shade;
+      instances[offset+9] = regionPhase;
+      instances[offset+10] = Math.max(.36,Math.min(.94,
+        .48 + compression * .28 + (seeded(instance,54) - .5) * .20 + tangled * .08
+      ));
+      instance += 1;
     }
   }
+
   gl.bindVertexArray(vao);
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,bladeBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER,blade,gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0);
   gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,instanceBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER,instances,gl.STATIC_DRAW);
+  const stride = 11 * Float32Array.BYTES_PER_ELEMENT;
+  for (const [location,size,attributeOffset] of [[1,3,0],[2,4,3],[3,4,7]]) {
+    gl.enableVertexAttribArray(location);
+    gl.vertexAttribPointer(location,size,gl.FLOAT,false,stride,attributeOffset*4);
+    gl.vertexAttribDivisor(location,1);
+  }
   gl.bindVertexArray(null);
-  return { vao, buffer, vertices:vertices.length / 2 };
+  return { vao, bladeBuffer, instanceBuffer, vertices:(segments+1)*2, count };
 }
 
 function createTerrainTexture(gl: WebGL2RenderingContext) {
@@ -576,20 +567,17 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
   if (!gl) return;
   const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
-  const groundProgram = program(gl,groundVertex,groundFragment);
-  const requested = matchMedia("(max-width:700px)").matches ? 148000 : 232000;
-  const grass = grassGeometry(gl,requested);
-  const ground = groundGeometry(gl);
+  const mobile = matchMedia("(max-width:700px)").matches;
+  const baseGrass = baseGrassGeometry(gl,mobile ? 112000 : 188000);
+  const moundGrass = moundGrassGeometry(gl,mobile ? 82000 : 136000);
   const terrain = createTerrainTexture(gl);
   const view = lookAt(camera,[0,.30,-2.35]);
   const grassVP = gl.getUniformLocation(grassProgram,"uVP");
-  const groundVP = gl.getUniformLocation(groundProgram,"uVP");
   const grassTerrain = gl.getUniformLocation(grassProgram,"uTerrain");
-  const groundTerrain = gl.getUniformLocation(groundProgram,"uTerrain");
   const time = gl.getUniformLocation(grassProgram,"uTime");
   const windScale = gl.getUniformLocation(grassProgram,"uWindScale");
   const cameraUniform = gl.getUniformLocation(grassProgram,"uCamera");
-  if (!grassVP || !groundVP || !grassTerrain || !groundTerrain || !time || !windScale || !cameraUniform) {
+  if (!grassVP || !grassTerrain || !time || !windScale || !cameraUniform) {
     throw new Error("Missing uniforms");
   }
 
@@ -614,37 +602,34 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.disable(gl.CULL_FACE);
-    gl.clearColor(.1216,.2000,.1255,1);
+    gl.clearColor(.035,.052,.030,1);
     gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D,terrain.texture);
-    gl.useProgram(groundProgram);
-    gl.uniformMatrix4fv(groundVP,false,vp);
-    gl.uniform1i(groundTerrain,0);
-    gl.bindVertexArray(ground.vao);
-    gl.drawArrays(gl.TRIANGLES,0,ground.vertices);
     gl.useProgram(grassProgram);
     gl.uniformMatrix4fv(grassVP,false,vp);
     gl.uniform1i(grassTerrain,0);
     gl.uniform1f(time,windClock);
     gl.uniform1f(windScale,amount);
     gl.uniform3fv(cameraUniform,camera);
-    gl.bindVertexArray(grass.vao);
-    gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,grass.vertices,grass.count);
+    gl.bindVertexArray(baseGrass.vao);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,baseGrass.vertices,baseGrass.count);
+    gl.bindVertexArray(moundGrass.vao);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,moundGrass.vertices,moundGrass.count);
     frame=requestAnimationFrame(render);
   };
   frame=requestAnimationFrame(render);
   return () => {
     cancelAnimationFrame(frame);
-    gl.deleteBuffer(grass.bladeBuffer);
-    gl.deleteBuffer(grass.instanceBuffer);
-    gl.deleteVertexArray(grass.vao);
-    gl.deleteBuffer(ground.buffer);
-    gl.deleteVertexArray(ground.vao);
+    gl.deleteBuffer(baseGrass.bladeBuffer);
+    gl.deleteBuffer(baseGrass.instanceBuffer);
+    gl.deleteVertexArray(baseGrass.vao);
+    gl.deleteBuffer(moundGrass.bladeBuffer);
+    gl.deleteBuffer(moundGrass.instanceBuffer);
+    gl.deleteVertexArray(moundGrass.vao);
     terrain.image.onload = null;
     gl.deleteTexture(terrain.texture);
     gl.deleteProgram(grassProgram);
-    gl.deleteProgram(groundProgram);
   };
 }
 
