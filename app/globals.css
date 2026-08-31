@@ -44,6 +44,47 @@ body {
   gap: 14px;
 }
 
+.reference-stage-shell {
+  position: relative;
+}
+
+.study-switcher {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 12px);
+  width: clamp(56px, 4.5vw, 72px);
+  padding: 0;
+  overflow: hidden;
+  aspect-ratio: 832 / 1492;
+  border: 0;
+  border-radius: 12px;
+  outline: 0;
+  background: #192818;
+  box-shadow: 0 0 0 1px rgb(15 20 13 / 10%);
+  cursor: pointer;
+  transition: transform 180ms cubic-bezier(.2,.75,.25,1), box-shadow 180ms ease;
+}
+
+.study-switcher:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgb(15 20 13 / 14%);
+}
+
+.study-switcher:active {
+  transform: scale(.97);
+}
+
+.study-switcher:focus-visible {
+  box-shadow: 0 0 0 3px #ffffff, 0 0 0 5px #20211f;
+}
+
+.study-switcher__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .reference-caption {
   display: flex;
   align-items: center;
@@ -226,4 +267,12 @@ body {
   .wind-control__filled-label,
   .wind-control__label { left: 10px; }
   .wind-control__value { right: 10px; }
+  .study-switcher {
+    top: 8px;
+    right: 8px;
+    left: auto;
+    width: 44px;
+    border: 2px solid #ffffff;
+    border-radius: 9px;
+  }
 }

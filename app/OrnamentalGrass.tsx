@@ -11,6 +11,28 @@ function windAmountFromStrength(strength: number) {
   return WIND_MIN + normalized * (WIND_MAX - WIND_MIN);
 }
 
+type StudyId = "study-7400" | "study-7401";
+
+const STUDIES: Record<StudyId, {
+  video: string;
+  poster: string;
+  caption: string;
+  videoLabel: string;
+}> = {
+  "study-7400": {
+    video: "/IMG_7400.mp4",
+    poster: "/IMG_7400-poster.jpg",
+    caption: "Grass Study Recording.mp4",
+    videoLabel: "Original footage of mounded ornamental grass moving in the wind",
+  },
+  "study-7401": {
+    video: "/IMG_7401.mp4",
+    poster: "/IMG_7401-poster.jpg",
+    caption: "Grass Study Recording 02.mp4",
+    videoLabel: "Second footage of upright ornamental grass moving in the wind",
+  },
+};
+
 const grassVertex = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aBlade;
@@ -20,6 +42,7 @@ layout(location=3) in vec4 aMotion;
 uniform mat4 uVP;
 uniform float uTime;
 uniform float uWindScale;
+uniform float uStudy;
 uniform sampler2D uTerrain;
 out vec3 vNormal;
 out vec3 vWorld;
@@ -40,11 +63,13 @@ float terrainShape(vec2 xz) {
 void main() {
   float side = aBlade.x;
   float t = aBlade.y;
+  float secondStudy = step(0.5, uStudy);
   float terrainLevel = terrainShape(aRoot.xz);
   float terrainX = terrainShape(aRoot.xz + vec2(0.16, 0.0));
   float terrainZ = terrainShape(aRoot.xz + vec2(0.0, 0.16));
-  float terrainY = (terrainLevel - 0.5) * 0.58;
-  vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) * 0.58 / 0.16;
+  float terrainStrength = mix(0.58, 0.43, secondStudy);
+  float terrainY = (terrainLevel - 0.5) * terrainStrength;
+  vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) * terrainStrength / 0.16;
   vec3 terrainNormal = normalize(vec3(-terrainGradient.x, 1.0, -terrainGradient.y));
   float slopeAmount = smoothstep(0.018, 0.18, length(terrainGradient));
   vec2 downhill = normalize(-terrainGradient + vec2(0.0001));
@@ -52,14 +77,14 @@ void main() {
   float width = aShape.y;
   vec2 radial = vec2(cos(aShape.z), sin(aShape.z));
   vec2 bladeSide = vec2(cos(aShape.w), sin(aShape.w));
-  vec2 windDirection = normalize(vec2(0.78, 0.63));
+  vec2 windDirection = normalize(mix(vec2(0.78, 0.63), vec2(-0.18, 0.98), secondStudy));
 
-  vec2 frontDirection = normalize(vec2(0.56, 0.83));
+  vec2 frontDirection = normalize(mix(vec2(0.56, 0.83), vec2(-0.12, 0.99), secondStudy));
   vec2 frontSide = vec2(-frontDirection.y, frontDirection.x);
   float alongFront = dot(aRoot.xz, frontDirection);
   float acrossFront = dot(aRoot.xz, frontSide);
   float clumpLag = sin(aMotion.z * 1.37) * 0.52;
-  float frontPhase = fract((alongFront - uTime * 1.06 + clumpLag) / 18.0);
+  float frontPhase = fract((alongFront - uTime * mix(1.06, 0.72, secondStudy) + clumpLag) / 18.0);
   float frontDistance = min(frontPhase, 1.0 - frontPhase) * 18.0;
   float primaryFront = 1.0 - smoothstep(0.75, 3.15, frontDistance);
   float primaryRegion = 0.18 + 0.82 * pow(
@@ -92,7 +117,10 @@ void main() {
   vec2 chaoticWindDirection = normalize(windDirection
     + crossWind * (chaosA * 1.06 + individualTurn * 0.52) * extremeWind
     + radial * (chaosB * 0.46 + individualTurn * 0.26) * extremeWind);
-  float wind = 0.11 + gust * 0.48 + clumpBreath * 0.10 + secondFront * 0.045;
+  float wind = mix(0.11, 0.085, secondStudy)
+    + gust * mix(0.48, 0.37, secondStudy)
+    + clumpBreath * mix(0.10, 0.075, secondStudy)
+    + secondFront * 0.045;
   wind += sin(uTime * 2.20 + aMotion.z) * 0.008
     + sin(uTime * 3.10 + aMotion.z * 0.63) * 0.004;
   wind *= mix(1.0, 0.58 + chaosPulse * 1.04, extremeWind);
@@ -103,8 +131,8 @@ void main() {
   float tip = pow(t, 2.15);
   float taper = pow(max(1.0 - t, 0.0), 0.66);
   float lean = aMotion.w;
-  vec2 bendDirection = normalize(radial * (1.22 - wind * 0.34)
-    + chaoticWindDirection * (0.06 + wind * 0.46)
+  vec2 bendDirection = normalize(radial * (mix(1.22, 1.58, secondStudy) - wind * mix(0.34, 0.24, secondStudy))
+    + chaoticWindDirection * (mix(0.06, 0.04, secondStudy) + wind * mix(0.46, 0.34, secondStudy))
     + downhill * slopeAmount * 0.11);
   float curlAngle = sin(aMotion.x * 1.37) * 0.22 * arch
     + sin(aMotion.x * 0.71) * 0.06 * tip;
@@ -120,11 +148,11 @@ void main() {
   float ripple = sin(aMotion.x + uTime * 1.74 + t * 2.7) * 0.006 * height
     + bladeFlutter * extremeWind * height * (0.020 + gust * 0.028);
 
-  float naturalReach = height * (0.050 * t + lean * 0.62 * arch);
+  float naturalReach = height * (0.050 * t + lean * mix(0.62, 0.39, secondStudy) * arch);
   float gustReach = height * wind * (
     0.12 + gust * 0.10 + peakGust * 0.18
     + extremeWind * (0.09 + gust * 0.16 + peakGust * 0.22)
-  ) * curve;
+  ) * curve * mix(1.0, 0.78, secondStudy);
   vec3 world = aRoot;
   world.y += terrainY;
   // Both vegetation layers emerge from the hidden terrain normal before
@@ -134,7 +162,9 @@ void main() {
   world.xz += chaoticWindDirection * gustReach;
   world.xz += rippleDirection * ripple * tip;
   float verticalLift = max(0.018,
-    1.0 - lean * 0.58 * arch - wind * 0.16 * tip - peakGust * 0.42 * tip
+    1.0 - lean * mix(0.58, 0.38, secondStudy) * arch
+      - wind * mix(0.16, 0.11, secondStudy) * tip
+      - peakGust * mix(0.42, 0.30, secondStudy) * tip
       - extremeWind * (0.28 + gust * 0.20 + peakGust * 0.38) * tip
       - extremeWind * abs(chaosB) * 0.14 * tip
   );
@@ -168,12 +198,14 @@ in float vT;
 in float vShade;
 in float vGust;
 uniform vec3 uCamera;
+uniform float uStudy;
 uniform sampler2D uReferenceColorField;
 uniform sampler2D uGeneratedGradientField;
 uniform vec2 uResolution;
 out vec4 outColor;
 
 void main() {
+  float secondStudy = step(0.5, uStudy);
   vec3 normal = normalize(gl_FrontFacing ? vNormal : -vNormal);
   vec3 sun = normalize(vec3(-0.54, 0.78, 0.32));
   vec3 view = normalize(uCamera - vWorld);
@@ -242,7 +274,7 @@ void main() {
   vec3 referenceChroma = referenceField / max(referenceLuma, 0.055);
   float spatialLuma = mix(sourceLuma, referenceLuma, 0.28);
   vec3 spatialTint = referenceChroma * spatialLuma;
-  color = mix(color, spatialTint, 0.34);
+  color = mix(color, spatialTint, mix(0.34, 0.48, secondStudy));
 
   // Gentle value refinement only: lift midtones and reflected sunlight while
   // preserving the restrained reference-field palette and existing shading.
@@ -312,6 +344,20 @@ const featuredClumps: Clump[] = [
 
   [-1.95,-12.52,2.12,.30,-.22,.22,.98,.22,.49,.67],[3.45,-9.78,2.42,.34,.18,.91,.99,.26,.62,.71],[-3.18,-7.14,2.28,.36,-.31,.40,.97,.24,.44,.72],[1.86,-4.39,2.62,.38,.27,.78,.99,.28,.68,.66],[-2.44,-.94,2.75,.42,-.24,.28,.98,.30,.52,.70],[2.04,2.37,3.02,.45,.20,.88,.99,.33,.72,.64],[-1.06,6.02,3.32,.52,-.18,.38,.99,.34,.57,.68],
   [-3.92,-15.06,1.86,.42,.38,.62,.97,.34,.42,.62],[1.58,-12.04,2.42,.50,-.33,.25,.99,.36,.58,.58],[-.62,-8.68,3.04,.62,.18,.82,.98,.38,.46,.62],[3.08,-5.76,2.74,.68,-.25,.42,.99,.36,.66,.58],[-3.18,-3.02,3.12,.78,.30,.95,.98,.38,.52,.60],[.42,.38,3.82,.92,-.18,.35,.99,.38,.62,.56],[-1.68,3.72,4.58,1.05,.22,.78,.99,.39,.50,.54],[1.04,7.08,5.96,1.34,-.12,.28,.99,.39,.59,.52],
+];
+
+// The second reference is a different growth pattern: fewer, fuller cushions
+// whose blades stay upright through the center and spill only at their edges.
+const uprightFeaturedClumps: Clump[] = [
+  [-5.45,-18.55,1.44,.94,-.18,.24,.38,.88,.56,.82],[-2.15,-18.18,1.68,1.05,.20,.62,.31,.94,.68,.88],[1.44,-18.62,1.78,1.12,-.14,.38,.28,.98,.62,.92],[4.92,-18.14,1.48,.98,.22,.82,.42,.89,.70,.84],
+  [-4.58,-15.48,1.74,1.22,.18,.78,.36,.96,.58,.90],[-.72,-15.82,1.94,1.34,-.20,.30,.26,.99,.72,.96],[3.62,-15.34,1.82,1.28,.16,.58,.34,.96,.64,.90],
+  [-5.42,-12.34,1.68,1.30,-.22,.42,.40,.92,.54,.84],[-2.12,-11.86,1.88,1.42,.18,.92,.33,.98,.70,.94],[1.42,-12.42,2.16,1.48,-.16,.28,.22,1.00,.66,1.00],[5.04,-11.92,1.72,1.30,.24,.70,.37,.94,.58,.88],
+  [-4.55,-8.78,1.92,1.46,.20,.34,.29,.97,.62,.92],[-.66,-9.16,2.18,1.62,-.18,.82,.24,1.00,.74,1.02],[3.76,-8.54,2.06,1.54,.16,.46,.31,.98,.60,.94],
+  [-5.08,-5.28,2.10,1.58,-.21,.72,.35,.96,.56,.90],[-1.28,-5.84,2.30,1.76,.20,.26,.21,1.00,.71,1.04],[2.74,-5.18,2.16,1.66,-.14,.88,.28,.99,.66,.98],[5.72,-5.66,1.40,1.48,.16,.44,.38,.90,.59,.86],
+  [-4.28,-1.72,2.34,1.80,.18,.32,.25,.99,.64,.98],[.18,-2.24,2.56,1.92,-.16,.76,.20,1.00,.72,1.06],[4.50,-1.54,2.26,1.78,.20,.48,.30,.97,.58,.94],
+  [-5.18,2.08,2.20,1.86,-.18,.82,.34,.96,.60,.92],[-1.14,1.52,2.64,2.02,.17,.36,.22,1.00,.70,1.04],[3.28,2.30,2.48,1.92,-.15,.68,.27,.99,.66,.98],[5.94,1.58,1.46,1.70,.14,.26,.40,.88,.56,.86],
+  [-4.18,5.72,2.70,2.02,.18,.44,.24,.99,.62,1.00],[.82,5.26,2.88,2.18,-.16,.86,.19,1.00,.74,1.08],[5.06,5.92,2.50,2.00,.18,.32,.31,.96,.58,.94],
+  [-5.30,8.52,2.52,2.16,-.18,.74,.28,.97,.64,.98],[-.36,8.20,3.06,2.34,.14,.28,.21,1.00,.72,1.06],[4.72,8.60,2.68,2.18,-.16,.62,.26,.98,.60,.96],
 ];
 
 // Only the raised, long-grass cushions belong to the mound layer. The narrow
@@ -395,7 +441,11 @@ function seeded(index: number, salt: number) {
   return value - Math.floor(value);
 }
 
-function moundGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
+function moundGrassGeometry(
+  gl: WebGL2RenderingContext,
+  requested: number,
+  study: StudyId,
+) {
   const vao = gl.createVertexArray();
   const bladeBuffer = gl.createBuffer();
   const instanceBuffer = gl.createBuffer();
@@ -405,17 +455,19 @@ function moundGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
   const blade = new Float32Array((segments + 1) * 4);
   for (let i=0;i<=segments;i+=1) blade.set([-1,i/segments,1,i/segments], i*4);
 
+  const secondStudy = study === "study-7401";
+  const activeClumps = secondStudy ? uprightFeaturedClumps : moundClumps;
   const weight = (clump: Clump, clumpIndex: number) => clump[2] * clump[3] * clump[7]
     * (clump[7] < .405 ? .82 : 1)
     * (.68 + seeded(clumpIndex, 31) * .72);
-  const totalWeight = moundClumps.reduce((sum, clump, clumpIndex) => sum + weight(clump, clumpIndex), 0);
-  const counts = moundClumps.map((clump, clumpIndex) => Math.floor(requested * weight(clump, clumpIndex) / totalWeight));
+  const totalWeight = activeClumps.reduce((sum, clump, clumpIndex) => sum + weight(clump, clumpIndex), 0);
+  const counts = activeClumps.map((clump, clumpIndex) => Math.floor(requested * weight(clump, clumpIndex) / totalWeight));
   let count = counts.reduce((sum, value) => sum + value, 0);
   for (let i=0;count<requested;i=(i+1)%counts.length) { counts[i] += 1; count += 1; }
   const instances = new Float32Array(count * 11);
   let index = 0;
 
-  moundClumps.forEach(([
+  activeClumps.forEach(([
     centerX,centerZ,radiusX,radiusZ,rotation,flow,collapse,
     density,tone,lengthScale,species = 0,
   ], clumpIndex) => {
@@ -423,17 +475,17 @@ function moundGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
     const foreground = Math.max(0, Math.min(1, (centerZ + 2) / 10));
     const rotationCos = Math.cos(rotation);
     const rotationSin = Math.sin(rotation);
-    const localFlow = flow + (seeded(clumpIndex, 22) - .5) * 3.10;
+    const localFlow = flow + (seeded(clumpIndex, 22) - .5) * (secondStudy ? 1.24 : 3.10);
     const flowX = Math.cos(localFlow);
     const flowZ = Math.sin(localFlow);
     const meanRadius = Math.sqrt(radiusX * radiusZ);
     const isContinuity = density < .405 ? 1 : 0;
     const posture = seeded(clumpIndex, 32);
-    const upright = isContinuity > .5 ? 0 : posture < .29 ? 1 : 0;
-    const flattened = isContinuity > .5 ? 0 : posture > .76 ? 1 : 0;
-    const postureLength = upright > .5 ? 1.22 : flattened > .5 ? .66 : .94;
-    const postureLift = upright > .5 ? 1.24 : flattened > .5 ? .54 : .90;
-    const footprintScale = upright > .5 ? .88 : flattened > .5 ? 1.18 : 1.0;
+    const upright = isContinuity > .5 ? 0 : posture < (secondStudy ? .62 : .29) ? 1 : 0;
+    const flattened = isContinuity > .5 ? 0 : posture > (secondStudy ? .92 : .76) ? 1 : 0;
+    const postureLength = upright > .5 ? (secondStudy ? 1.10 : 1.22) : flattened > .5 ? .66 : .94;
+    const postureLift = upright > .5 ? (secondStudy ? 1.38 : 1.24) : flattened > .5 ? .54 : .90;
+    const footprintScale = upright > .5 ? (secondStudy ? .80 : .88) : flattened > .5 ? 1.18 : 1.0;
     const clumpLength = postureLength * (.82 + seeded(clumpIndex, 15) * .38);
     const clumpCollapseBias = (seeded(clumpIndex, 16) - .5) * .42
       - upright * .16 + flattened * .30;
@@ -464,8 +516,8 @@ function moundGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
       const outwardX = rootX / outwardLength;
       const outwardZ = rootZ / outwardLength;
       const flattenedMat = isContinuity;
-      const broadFlow = flattenedMat > .5 ? .40 : .92;
-      const fineFlow = flattenedMat > .5 ? .18 : .36;
+      const broadFlow = flattenedMat > .5 ? .40 : (secondStudy ? .38 : .92);
+      const fineFlow = flattenedMat > .5 ? .18 : (secondStudy ? .19 : .36);
       const patchAngle = localFlow
         + Math.sin(angle * 2 + clumpPhase) * broadFlow
         + Math.sin(angle * 5 - clumpPhase * .72) * fineFlow;
@@ -475,7 +527,7 @@ function moundGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
       const directionZ = patchZ * .84 + outwardZ * .16;
       const tangled = seeded(index, 19) < (.27 + flattenedMat * .12) ? 1 : 0;
       const direction = Math.atan2(directionZ,directionX)
-        + (seeded(index, 5) - .5) * (flattenedMat > .5 ? .38 : .64)
+        + (seeded(index, 5) - .5) * (flattenedMat > .5 ? .38 : (secondStudy ? .34 : .64))
         + tangled * (seeded(index, 20) - .5) * 1.82;
       const strandNoise = .82 + Math.pow(seeded(index, 3), .82) * .42;
       const irregularProfile = Math.max(.72,Math.min(1.12,
@@ -491,7 +543,7 @@ function moundGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
         + Math.max(-.13,Math.min(.13,(rootX * flowX + rootZ * flowZ) / meanRadius * .12));
       const structuralLength = meanRadius <= 1.45
         ? meanRadius : 1.45 + (meanRadius - 1.45) * .28;
-      let height = structuralLength * .98 * strandNoise * edgeLength
+      let height = structuralLength * (secondStudy ? .79 : .98) * strandNoise * edgeLength
         * irregularProfile * strayLength * lengthScale * clumpLength
         * (1 - foreground * .10) * (1 - flattenedMat * .24)
         * (1 - contactPatch * .23) * (1 - baseBlade * .19)
@@ -502,7 +554,7 @@ function moundGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
         height *= .76;
       }
       const roundedShoulder = Math.pow(Math.max(0,1 - rootRatio),1.12);
-      const moundLift = roundedShoulder * meanRadius * .36 * postureLift
+      const moundLift = roundedShoulder * meanRadius * (secondStudy ? .31 : .36) * postureLift
         * (1 - flattenedMat * .84);
       const rootLift = .018 + moundLift
         + (1 - rootRatio) * .045 * (1 - collapse * .54)
@@ -553,7 +605,11 @@ function moundGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
   return { vao, bladeBuffer, instanceBuffer, vertices:(segments+1)*2, count };
 }
 
-function baseGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
+function baseGrassGeometry(
+  gl: WebGL2RenderingContext,
+  requested: number,
+  study: StudyId,
+) {
   const vao = gl.createVertexArray();
   const bladeBuffer = gl.createBuffer();
   const instanceBuffer = gl.createBuffer();
@@ -573,6 +629,7 @@ function baseGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
   const rows = Math.max(1,Math.ceil(requested / columns));
   const count = columns * rows;
   const instances = new Float32Array(count * 11);
+  const secondStudy = study === "study-7401";
   let instance = 0;
   for (let row=0;row<rows;row+=1) {
     for (let column=0;column<columns;column+=1) {
@@ -588,10 +645,11 @@ function baseGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
         + Math.sin(rootX * .24 + rootZ * .11) * .38
         + Math.cos(rootZ * .19 - rootX * .07) * .24;
       const tangled = seeded(instance,45) < (.17 + compression * .16) ? 1 : 0;
-      const direction = fieldDirection + (seeded(instance,46) - .5) * .78
+      const direction = fieldDirection + (seeded(instance,46) - .5) * (secondStudy ? .52 : .78)
         + tangled * (seeded(instance,47) - .5) * 1.72;
       const compressedLength = compression > .72 ? .68 : compression < .20 ? 1.08 : .88;
-      const height = (.42 + seeded(instance,48) * .48) * compressedLength;
+      const height = (secondStudy ? .34 + seeded(instance,48) * .36 : .42 + seeded(instance,48) * .48)
+        * compressedLength;
       const shade = Math.max(.04,Math.min(.94,
         .09 + seeded(instance,49) * .54 + (compression < .18 ? .18 : 0)
       ));
@@ -606,8 +664,9 @@ function baseGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
       instances[offset+7] = seeded(instance,53) * Math.PI * 2;
       instances[offset+8] = 1 + shade;
       instances[offset+9] = regionPhase;
-      instances[offset+10] = Math.max(.36,Math.min(.94,
-        .48 + compression * .28 + (seeded(instance,54) - .5) * .20 + tangled * .08
+      instances[offset+10] = Math.max(.28,Math.min(.94,
+        (secondStudy ? .34 : .48) + compression * .28
+          + (seeded(instance,54) - .5) * .20 + tangled * .08
       ));
       instance += 1;
     }
@@ -630,7 +689,7 @@ function baseGrassGeometry(gl: WebGL2RenderingContext, requested: number) {
   return { vao, bladeBuffer, instanceBuffer, vertices:(segments+1)*2, count };
 }
 
-function createTerrainTexture(gl: WebGL2RenderingContext) {
+function createTerrainTexture(gl: WebGL2RenderingContext, source: string) {
   const texture = gl.createTexture();
   if (!texture) throw new Error("Terrain texture allocation failed");
   gl.bindTexture(gl.TEXTURE_2D,texture);
@@ -650,7 +709,7 @@ function createTerrainTexture(gl: WebGL2RenderingContext) {
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
   };
-  image.src = "/topography-terrain.png";
+  image.src = source;
   return { texture, image };
 }
 
@@ -684,20 +743,36 @@ function createColorFieldTexture(
   return { texture, image };
 }
 
-function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
+function start(
+  canvas: HTMLCanvasElement,
+  windAmount: { current: number },
+  study: StudyId,
+) {
   const gl = canvas.getContext("webgl2",{antialias:true,alpha:false,depth:true,powerPreference:"high-performance"});
   if (!gl) return;
+  const secondStudy = study === "study-7401";
   const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
   const mobile = matchMedia("(max-width:700px)").matches;
-  const baseGrass = baseGrassGeometry(gl,mobile ? 112000 : 188000);
-  const moundGrass = moundGrassGeometry(gl,mobile ? 82000 : 136000);
-  const terrain = createTerrainTexture(gl);
+  const baseGrass = baseGrassGeometry(gl,mobile ? 112000 : 188000,study);
+  const moundGrass = moundGrassGeometry(
+    gl,
+    mobile ? (secondStudy ? 92000 : 82000) : (secondStudy ? 150000 : 136000),
+    study,
+  );
+  const terrain = createTerrainTexture(
+    gl,
+    secondStudy ? "/IMG_7401-terrain.png" : "/topography-terrain.png",
+  );
   const referenceColorField = createColorFieldTexture(
-    gl,"/reference-color-field-v2.png",[118,132,75,255],
+    gl,
+    secondStudy ? "/IMG_7401-color-field.png" : "/reference-color-field-v2.png",
+    secondStudy ? [119,148,62,255] : [118,132,75,255],
   );
   const generatedGradientField = createColorFieldTexture(
-    gl,"/generated-gradient-field.png",[107,123,68,255],
+    gl,
+    secondStudy ? "/IMG_7401-color-field.png" : "/generated-gradient-field.png",
+    secondStudy ? [119,148,62,255] : [107,123,68,255],
   );
   const view = lookAt(camera,[0,.30,-2.35]);
   const grassVP = gl.getUniformLocation(grassProgram,"uVP");
@@ -707,10 +782,11 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
   const resolutionUniform = gl.getUniformLocation(grassProgram,"uResolution");
   const time = gl.getUniformLocation(grassProgram,"uTime");
   const windScale = gl.getUniformLocation(grassProgram,"uWindScale");
+  const studyUniform = gl.getUniformLocation(grassProgram,"uStudy");
   const cameraUniform = gl.getUniformLocation(grassProgram,"uCamera");
   if (
     !grassVP || !grassTerrain || !referenceColorFieldUniform || !generatedGradientFieldUniform
-    || !resolutionUniform || !time || !windScale
+    || !resolutionUniform || !time || !windScale || !studyUniform
     || !cameraUniform
   ) {
     throw new Error("Missing uniforms");
@@ -754,6 +830,7 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     gl.uniform2f(resolutionUniform,width,height);
     gl.uniform1f(time,windClock);
     gl.uniform1f(windScale,amount);
+    gl.uniform1f(studyUniform,secondStudy ? 1 : 0);
     gl.uniform3fv(cameraUniform,camera);
     gl.bindVertexArray(baseGrass.vao);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,baseGrass.vertices,baseGrass.count);
@@ -791,14 +868,18 @@ export function OrnamentalGrass() {
     lastTime: 0,
     velocity: 0,
   });
+  const [activeStudy, setActiveStudy] = useState<StudyId>("study-7400");
   const [windStrength, setWindStrength] = useState(DEFAULT_WIND_STRENGTH);
   const [elasticPull, setElasticPull] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   useEffect(() => {
     if (!ref.current) return;
-    try { return start(ref.current,windAmount); }
+    try { return start(ref.current,windAmount,activeStudy); }
     catch (error) { console.error("Unable to start the ornamental grass field",error); }
-  },[]);
+  },[activeStudy]);
+  const activeReference = STUDIES[activeStudy];
+  const alternateStudy: StudyId = activeStudy === "study-7400" ? "study-7401" : "study-7400";
+  const alternateReference = STUDIES[alternateStudy];
   const windFill = `${windStrength}%`;
   const setStrength = (strength: number) => {
     const next = Math.max(0,Math.min(100,strength));
@@ -813,7 +894,9 @@ export function OrnamentalGrass() {
             ref={ref}
             className="grass-canvas"
             role="img"
-            aria-label="Mounded ornamental grass moving continuously in layered coastal wind"
+            aria-label={activeStudy === "study-7400"
+              ? "Mounded ornamental grass moving continuously in layered coastal wind"
+              : "Compact upright ornamental grass moving continuously in localized wind"}
           />
           <div className="grass-fallback" aria-hidden="true" />
           <figcaption className="visually-hidden">
@@ -902,23 +985,45 @@ export function OrnamentalGrass() {
         </label>
       </section>
       <section className="reference-experience" aria-label="Original grass reference video">
-        <figure className="grass-stage reference-stage">
-          <video
-            className="reference-video"
-            src="/IMG_7400.mp4"
-            poster="/IMG_7400-poster.jpg"
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            aria-label="Original footage of ornamental grass moving in the wind"
-          />
-          <figcaption className="visually-hidden">
-            Original reference footage of dense ornamental grass moving outdoors.
-          </figcaption>
-        </figure>
-        <p className="reference-caption">Grass Study Recording.mp4</p>
+        <div className="reference-stage-shell">
+          <figure className="grass-stage reference-stage">
+            <video
+              key={activeStudy}
+              className="reference-video"
+              src={activeReference.video}
+              poster={activeReference.poster}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              aria-label={activeReference.videoLabel}
+            />
+            <figcaption className="visually-hidden">
+              Active real-world reference footage for the generated grass study.
+            </figcaption>
+          </figure>
+          <button
+            className="study-switcher"
+            type="button"
+            aria-label={`Switch to ${alternateReference.caption}`}
+            onClick={() => setActiveStudy(alternateStudy)}
+          >
+            <video
+              key={alternateStudy}
+              className="study-switcher__video"
+              src={alternateReference.video}
+              poster={alternateReference.poster}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+        <p className="reference-caption" aria-live="polite">{activeReference.caption}</p>
       </section>
     </div>
   );
