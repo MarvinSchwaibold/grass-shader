@@ -953,7 +953,7 @@ export function OrnamentalGrass() {
   },[activeStudy]);
   const activeReference = REFERENCE_MEDIA.find((media) => media.id === activeReferenceId)
     ?? REFERENCE_MEDIA[0];
-  const referenceThumbnails = REFERENCE_MEDIA.filter((media) => media.id !== activeReference.id);
+  const referenceMaps = REFERENCE_MEDIA.filter((media) => media.kind === "image");
   const windFill = `${windStrength}%`;
   const setStrength = (strength: number) => {
     const next = Math.max(0,Math.min(100,strength));
@@ -1085,35 +1085,27 @@ export function OrnamentalGrass() {
             </figcaption>
           </figure>
           <aside className="reference-map-stack" aria-label="Reference analysis maps">
-            {referenceThumbnails.map((media) => (
+            {referenceMaps.map((media) => {
+              const selected = activeReference.id === media.id;
+              return (
               <button
                 key={media.id}
-                className="reference-map-button"
+                className={`reference-map-button${selected ? " is-selected" : ""}`}
                 type="button"
-                aria-label={`Show ${media.caption}`}
-                onClick={() => setActiveReferenceId(media.id)}
+                aria-label={selected
+                  ? `Return to Grass Study Recording.mp4 from ${media.caption}`
+                  : `Show ${media.caption}`}
+                aria-pressed={selected}
+                onClick={() => setActiveReferenceId(selected ? "recording" : media.id)}
               >
-                {media.kind === "video" ? (
-                  <video
-                    className="reference-map"
-                    src={media.src}
-                    poster={media.poster}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="metadata"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <img
-                    className="reference-map"
-                    src={media.src}
-                    alt=""
-                  />
-                )}
+                <img
+                  className="reference-map"
+                  src={media.src}
+                  alt=""
+                />
               </button>
-            ))}
+              );
+            })}
           </aside>
         </div>
         <p className="reference-caption" aria-live="polite">{activeReference.caption}</p>

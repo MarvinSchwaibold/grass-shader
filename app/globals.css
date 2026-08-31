@@ -78,6 +78,11 @@ body {
 
 .reference-map-button:active { transform: scale(.96); }
 
+.reference-map-button.is-selected {
+  outline: 2px solid #20211f;
+  outline-offset: 2px;
+}
+
 .reference-map-button:focus-visible {
   box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #20211f;
 }
