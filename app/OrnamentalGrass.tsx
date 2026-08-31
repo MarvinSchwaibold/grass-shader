@@ -236,10 +236,29 @@ void main() {
   float targetLuma = dot(targetField, vec3(0.2126, 0.7152, 0.0722));
   float sourceLuma = dot(color, vec3(0.2126, 0.7152, 0.0722));
   vec3 targetChroma = targetField / max(targetLuma, 0.055);
-  float localExposure = mix(1.0, clamp(targetLuma / 0.49, 0.48, 1.58), 0.62);
-  vec3 transferred = color * mix(vec3(1.0), targetChroma, 0.72) * localExposure;
+  float localExposure = mix(1.0, clamp(targetLuma / 0.49, 0.62, 1.38), 0.34);
+  vec3 transferred = color * mix(vec3(1.0), targetChroma, 0.42) * localExposure;
   float highlightPreserve = smoothstep(0.72, 0.98, sourceLuma);
-  color = mix(color, transferred, 0.82 - highlightPreserve * 0.20);
+  color = mix(color, transferred, 0.48 - highlightPreserve * 0.12);
+
+  // Calm photographic grade: slightly dusty midtones, cool detailed shadows,
+  // and silver/soft-straw highlights without the electric lime response.
+  float gradedLuma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+  color = mix(vec3(gradedLuma), color, 0.76);
+  vec3 shadowGrade = vec3(0.105, 0.165, 0.125);
+  vec3 oliveGrade = vec3(0.385, 0.430, 0.285);
+  vec3 silverGrade = vec3(0.690, 0.715, 0.585);
+  vec3 strawGrade = vec3(0.665, 0.615, 0.445);
+  float shadowRegion = 1.0 - smoothstep(0.12, 0.38, gradedLuma);
+  float highlightRegion = smoothstep(0.58, 0.92, gradedLuma);
+  float dryRegion = smoothstep(0.66, 0.92, shade) * highlightRegion;
+  vec3 regionalGrade = mix(oliveGrade, silverGrade, highlightRegion);
+  regionalGrade = mix(regionalGrade, shadowGrade, shadowRegion);
+  regionalGrade = mix(regionalGrade, strawGrade, dryRegion * 0.42);
+  color = mix(color, regionalGrade, 0.13);
+
+  float compressedLuma = 0.032 + gradedLuma * 0.875;
+  color *= compressedLuma / max(dot(color, vec3(0.2126, 0.7152, 0.0722)), 0.028);
   color = min(color, silver);
   outColor = vec4(color, 1.0);
 }`;
