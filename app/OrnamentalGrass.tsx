@@ -241,6 +241,16 @@ void main() {
   float dryFamily = smoothstep(0.60, 0.93, shade);
   vec3 weathered = fract(shade * 13.71) < 0.52 ? strawBlade : grayBlade;
   color = mix(color, weathered, dryFamily * 0.74);
+  // Study 02 keeps the same families but pulls their base values toward the
+  // quieter olive/sage character of the second recording. Sunlight can still
+  // reveal pale strands later without turning the whole cushion lime.
+  float familyLuma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+  vec3 studyTwoMuted = mix(
+    vec3(0.185, 0.255, 0.155),
+    vec3(0.625, 0.660, 0.455),
+    smoothstep(0.10, 0.72, familyLuma)
+  );
+  color = mix(color, studyTwoMuted, secondStudy * 0.24);
   // Trough blades stay cool and dark, but retain the same separated strand
   // shading as the lit mounds instead of fading into a pale floor-like mat.
   color = mix(color, mix(shadowBlade, coolBlade, 0.62),
@@ -257,12 +267,16 @@ void main() {
   color = mix(rootColor, color, smoothstep(0.05, 0.44, vT));
   color = mix(color, shadowBlade, (1.0 - smoothstep(0.03, 0.26, vT)) * 0.20);
   float sunWash = smoothstep(0.48, 0.96, direct) * smoothstep(0.44, 1.0, vT);
-  color = mix(color, paleBlade, sunWash * (0.25 + flattened * 0.06));
+  color = mix(color, paleBlade,
+    sunWash * (0.25 + flattened * 0.06) * mix(1.0, 0.76, secondStudy));
   float illumination = 0.70 + direct * 0.72 + translucent * 0.18 + vGust * 0.016;
   color *= illumination;
-  color += paleBlade * silverEdge * (0.080 + vT * 0.185);
-  color += silver * strandFlash * direct * 0.48 * smoothstep(0.16, 1.0, vT);
-  color += silver * specular * (1.10 + vGust * 0.36) * smoothstep(0.20, 1.0, vT);
+  color += paleBlade * silverEdge * (0.080 + vT * 0.185)
+    * mix(1.0, 0.82, secondStudy);
+  color += silver * strandFlash * direct * 0.48 * smoothstep(0.16, 1.0, vT)
+    * mix(1.0, 0.76, secondStudy);
+  color += silver * specular * (1.10 + vGust * 0.36) * smoothstep(0.20, 1.0, vT)
+    * mix(1.0, 0.78, secondStudy);
   color *= mix(1.0, 1.06, smoothstep(0.16, 0.78, vT));
 
   // Subtle screen-space color inheritance from the blurred real reference.
@@ -274,7 +288,7 @@ void main() {
   vec3 referenceChroma = referenceField / max(referenceLuma, 0.055);
   float spatialLuma = mix(sourceLuma, referenceLuma, 0.28);
   vec3 spatialTint = referenceChroma * spatialLuma;
-  color = mix(color, spatialTint, mix(0.34, 0.48, secondStudy));
+  color = mix(color, spatialTint, mix(0.34, 0.40, secondStudy));
 
   // Gentle value refinement only: lift midtones and reflected sunlight while
   // preserving the restrained reference-field palette and existing shading.
@@ -294,7 +308,8 @@ void main() {
   float lowerHalf = 1.0 - smoothstep(0.38, 0.76, fieldUV.y);
   float strawVariation = clamp(lowerHalf * 0.55 + flattened * 0.70, 0.0, 1.0)
     * dryFamily * smoothstep(0.30, 1.0, vT);
-  color = mix(color, vec3(0.67, 0.63, 0.50), strawVariation * 0.085);
+  color = mix(color, vec3(0.67, 0.63, 0.50),
+    strawVariation * mix(0.085, 0.15, secondStudy));
 
   float refinedLuma = dot(color, vec3(0.2126, 0.7152, 0.0722));
   float shadowLift = 1.0 - smoothstep(0.11, 0.29, refinedLuma);
@@ -482,11 +497,16 @@ function moundGrassGeometry(
     const meanRadius = Math.sqrt(radiusX * radiusZ);
     const isContinuity = density < .405 ? 1 : 0;
     const posture = seeded(clumpIndex, 32);
-    const upright = isContinuity > .5 ? 0 : posture < (secondStudy ? .06 : .29) ? 1 : 0;
-    const flattened = isContinuity > .5 ? 0 : posture > (secondStudy ? .30 : .76) ? 1 : 0;
-    const postureLength = upright > .5 ? 1.22 : flattened > .5 ? (secondStudy ? .80 : .66) : .94;
-    const postureLift = upright > .5 ? 1.24 : flattened > .5 ? (secondStudy ? .44 : .54) : .90;
-    const footprintScale = upright > .5 ? .88 : flattened > .5 ? (secondStudy ? 1.26 : 1.18) : 1.0;
+    const upright = isContinuity > .5 ? 0 : posture < (secondStudy ? .18 : .29) ? 1 : 0;
+    const flattened = isContinuity > .5 ? 0 : posture > (secondStudy ? .65 : .76) ? 1 : 0;
+    const postureLength = upright > .5
+      ? (secondStudy ? 1.10 : 1.22)
+      : flattened > .5 ? (secondStudy ? .76 : .66) : .94;
+    const postureLift = upright > .5
+      ? (secondStudy ? 1.18 : 1.24)
+      : flattened > .5 ? (secondStudy ? .52 : .54) : .90;
+    const footprintScale = upright > .5 ? .88
+      : flattened > .5 ? (secondStudy ? 1.16 : 1.18) : 1.0;
     const clumpLength = postureLength * (.82 + seeded(clumpIndex, 15) * .38);
     const clumpCollapseBias = (seeded(clumpIndex, 16) - .5) * .42
       - upright * .16 + flattened * .30;
@@ -499,9 +519,10 @@ function moundGrassGeometry(
       const rootRatio = seeded(index, 17) < .55
         ? Math.pow(radialSeed, 1.42) * .90
         : Math.pow(radialSeed, .72);
+      const edgeIrregularity = secondStudy ? 1.22 : 1;
       const brokenEdge = 1
-        + Math.sin(angle * 3 + clumpPhase) * .18
-        + Math.sin(angle * 5 - clumpPhase * .63) * .11;
+        + Math.sin(angle * 3 + clumpPhase) * .18 * edgeIrregularity
+        + Math.sin(angle * 5 - clumpPhase * .63) * .11 * edgeIrregularity;
       const localX = Math.cos(angle) * rootRatio * radiusX * brokenEdge * .96
         * footprintScale;
       const localZ = Math.sin(angle) * rootRatio * radiusZ * brokenEdge * .96
@@ -519,14 +540,23 @@ function moundGrassGeometry(
       const flattenedMat = isContinuity;
       const broadFlow = flattenedMat > .5 ? .40 : (secondStudy ? .50 : .92);
       const fineFlow = flattenedMat > .5 ? .18 : (secondStudy ? .24 : .36);
+      // Six coarse directional bundles make every Video 02 cushion read as a
+      // mass of overlapping grass groups, rather than one continuously combed
+      // fiber sheet. Individual blades still break and cross within each group.
+      const bundleIndex = Math.floor((angle / (Math.PI * 2)) * 6);
+      const bundleSeed = clumpIndex * 13 + bundleIndex;
+      const bundleTurn = secondStudy ? (seeded(bundleSeed, 60) - .5) * 1.06 : 0;
+      const bundleLength = secondStudy ? .86 + seeded(bundleSeed, 61) * .28 : 1;
+      const bundleCollapse = secondStudy ? (seeded(bundleSeed, 62) - .5) * .30 : 0;
       const patchAngle = localFlow
         + Math.sin(angle * 2 + clumpPhase) * broadFlow
-        + Math.sin(angle * 5 - clumpPhase * .72) * fineFlow;
+        + Math.sin(angle * 5 - clumpPhase * .72) * fineFlow
+        + bundleTurn;
       const patchX = Math.cos(patchAngle);
       const patchZ = Math.sin(patchAngle);
       const directionX = patchX * .84 + outwardX * .16;
       const directionZ = patchZ * .84 + outwardZ * .16;
-      const tangled = seeded(index, 19) < (.27 + flattenedMat * .12) ? 1 : 0;
+      const tangled = seeded(index, 19) < ((secondStudy ? .35 : .27) + flattenedMat * .12) ? 1 : 0;
       const direction = Math.atan2(directionZ,directionX)
         + (seeded(index, 5) - .5) * (flattenedMat > .5 ? .38 : (secondStudy ? .48 : .64))
         + tangled * (seeded(index, 20) - .5) * 1.82;
@@ -546,6 +576,7 @@ function moundGrassGeometry(
         ? meanRadius : 1.45 + (meanRadius - 1.45) * .28;
       let height = structuralLength * (secondStudy ? .90 : .98) * strandNoise * edgeLength
         * irregularProfile * strayLength * lengthScale * clumpLength
+        * bundleLength
         * (1 - foreground * .10) * (1 - flattenedMat * .24)
         * (1 - contactPatch * .23) * (1 - baseBlade * .19)
         * (1 - tangled * .06);
@@ -566,7 +597,9 @@ function moundGrassGeometry(
       instances[offset+3] = height;
       instances[offset+4] = species > .5
         ? .011 + seeded(index, 4) * .009
-        : (.0048 + seeded(index, 4) * .0047) * (1 + baseBlade * .10);
+        : (secondStudy
+          ? .0060 + seeded(index, 4) * .0052
+          : (.0048 + seeded(index, 4) * .0047) * (1 + baseBlade * .10));
       instances[offset+5] = direction;
       instances[offset+6] = direction + Math.PI * .5 + (seeded(index, 6) - .5) * .62;
       instances[offset+7] = seeded(index, 7) * Math.PI * 2;
@@ -582,6 +615,7 @@ function moundGrassGeometry(
         + clumpCollapseBias
         + Math.sin(angle * 2 + clumpPhase) * .075
         + Math.sin(angle * 5 - clumpPhase) * .035
+        + bundleCollapse
         + flattenedMat * .46 + contactPatch * .16 - baseBlade * .07
         + tangled * .07 + (seeded(index, 9) - .5) * .32
       ));
@@ -652,7 +686,8 @@ function baseGrassGeometry(
       const height = (secondStudy ? .48 + seeded(instance,48) * .42 : .42 + seeded(instance,48) * .48)
         * compressedLength;
       const shade = Math.max(.04,Math.min(.94,
-        .09 + seeded(instance,49) * .54 + (compression < .18 ? .18 : 0)
+        (secondStudy ? .17 : .09) + seeded(instance,49) * .54
+          + (compression < .18 ? .18 : 0)
       ));
 
       instances[offset] = rootX;
@@ -660,7 +695,7 @@ function baseGrassGeometry(
       instances[offset+2] = rootZ;
       instances[offset+3] = height;
       instances[offset+4] = secondStudy
-        ? .0062 + seeded(instance,51) * .0048
+        ? .0074 + seeded(instance,51) * .0050
         : .0046 + seeded(instance,51) * .0042;
       instances[offset+5] = direction;
       instances[offset+6] = direction + Math.PI * .5 + (seeded(instance,52) - .5) * .48;
@@ -759,7 +794,7 @@ function start(
   const mobile = matchMedia("(max-width:700px)").matches;
   const baseGrass = baseGrassGeometry(
     gl,
-    mobile ? (secondStudy ? 138000 : 112000) : (secondStudy ? 224000 : 188000),
+    mobile ? (secondStudy ? 160000 : 112000) : (secondStudy ? 264000 : 188000),
     study,
   );
   const moundGrass = moundGrassGeometry(
