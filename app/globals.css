@@ -93,6 +93,7 @@ body {
 }
 
 .reference-map-button {
+  position: relative;
   display: block;
   width: 100%;
   padding: 0;
@@ -104,6 +105,16 @@ body {
   box-shadow: none;
   cursor: pointer;
   transition: opacity 140ms ease;
+}
+
+.reference-map-button.is-selected::after {
+  position: absolute;
+  inset: 2px;
+  z-index: 1;
+  border: 1px solid rgb(20 22 19 / 82%);
+  border-radius: 3px;
+  content: "";
+  pointer-events: none;
 }
 
 .reference-map-button:focus-visible {

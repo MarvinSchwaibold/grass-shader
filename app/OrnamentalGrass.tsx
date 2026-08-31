@@ -1096,7 +1096,7 @@ export function OrnamentalGrass() {
               return (
               <button
                 key={media.id}
-                className="reference-map-button"
+                className={`reference-map-button${selected ? " is-selected" : ""}`}
                 type="button"
                 aria-label={`Show ${media.caption}`}
                 aria-pressed={selected}
