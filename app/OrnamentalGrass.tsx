@@ -11,16 +11,34 @@ layout(location=3) in vec4 aMotion;
 uniform mat4 uVP;
 uniform float uTime;
 uniform float uWindScale;
+uniform sampler2D uTerrain;
 out vec3 vNormal;
 out vec3 vWorld;
 out float vT;
 out float vShade;
 out float vGust;
 
+vec2 terrainUV(vec2 xz) {
+  return vec2((xz.x + 10.0) / 20.0, (12.0 - xz.y) / 34.0);
+}
+
+float terrainShape(vec2 xz) {
+  vec3 sampleColor = textureLod(uTerrain, clamp(terrainUV(xz), 0.0, 1.0), 4.0).rgb;
+  float luminance = dot(sampleColor, vec3(0.2126, 0.7152, 0.0722));
+  return smoothstep(0.19, 0.76, luminance);
+}
+
 void main() {
   float side = aBlade.x;
   float t = aBlade.y;
-  float height = aShape.x;
+  float terrainLevel = terrainShape(aRoot.xz);
+  float terrainX = terrainShape(aRoot.xz + vec2(0.16, 0.0));
+  float terrainZ = terrainShape(aRoot.xz + vec2(0.0, 0.16));
+  float terrainY = terrainLevel * 1.34 - 0.12;
+  vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) / 0.16;
+  float slopeAmount = smoothstep(0.025, 0.40, length(terrainGradient));
+  vec2 downhill = normalize(-terrainGradient + vec2(0.0001));
+  float height = aShape.x * mix(0.80, 1.08, terrainLevel);
   float width = aShape.y;
   vec2 radial = vec2(cos(aShape.z), sin(aShape.z));
   vec2 bladeSide = vec2(cos(aShape.w), sin(aShape.w));
@@ -48,7 +66,8 @@ void main() {
   float taper = pow(max(1.0 - t, 0.0), 0.66);
   float lean = aMotion.w;
   vec2 bendDirection = normalize(radial * (1.08 - wind * 0.48)
-    + windDirection * (0.10 + wind * 0.70));
+    + windDirection * (0.10 + wind * 0.70)
+    + downhill * slopeAmount * 0.46);
   float curlAngle = sin(aMotion.x * 1.37) * 0.22 * arch
     + sin(aMotion.x * 0.71) * 0.06 * tip;
   float curlCos = cos(curlAngle);
@@ -63,6 +82,7 @@ void main() {
   float naturalReach = height * (0.065 * t + lean * 0.80 * arch);
   float gustReach = height * wind * (0.18 + gust * 0.13) * curve;
   vec3 world = aRoot;
+  world.y += terrainY;
   world.xz += curveDirection * naturalReach;
   world.xz += windDirection * gustReach;
   world.xz += rippleDirection * ripple * tip;
@@ -120,7 +140,8 @@ void main() {
   vec3 paleBlade = vec3(0.8549, 0.8941, 0.7137);
   vec3 silver = vec3(0.9608, 0.9765, 0.9098);
 
-  float flattened = step(1.0, vShade);
+  float accentPlant = step(2.0, vShade);
+  float flattened = step(1.0, vShade) * (1.0 - accentPlant);
   float shade = fract(vShade);
   float strandFlash = smoothstep(0.72, 0.97, fract(shade * 29.73));
   vec3 color = shade < 0.14 ? coolBlade
@@ -133,7 +154,15 @@ void main() {
   color = mix(color, weathered, dryFamily * 0.74);
   color = mix(color, mix(grayBlade, strawBlade, 0.58), flattened * (0.29 + dryFamily * 0.25));
   color *= mix(0.82, 1.12, fract(shade * 7.31));
-  color = mix(root, color, smoothstep(0.05, 0.44, vT));
+  vec3 accentRoot = vec3(0.2784, 0.3216, 0.0471);
+  vec3 accentLeaf = mix(
+    vec3(0.6196, 0.6902, 0.0235),
+    vec3(0.8706, 0.8549, 0.0745),
+    shade
+  );
+  color = mix(color, accentLeaf, accentPlant);
+  vec3 rootColor = mix(root, accentRoot, accentPlant);
+  color = mix(rootColor, color, smoothstep(0.05, 0.44, vT));
   color = mix(color, shadowBlade, (1.0 - smoothstep(0.03, 0.26, vT)) * 0.20);
   float sunWash = smoothstep(0.48, 0.96, direct) * smoothstep(0.44, 1.0, vT);
   color = mix(color, paleBlade, sunWash * (0.25 + flattened * 0.06));
@@ -151,10 +180,19 @@ const groundVertex = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aPosition;
 uniform mat4 uVP;
+uniform sampler2D uTerrain;
 out vec2 vWorld;
+vec2 terrainUV(vec2 xz) {
+  return vec2((xz.x + 10.0) / 20.0, (12.0 - xz.y) / 34.0);
+}
+float terrainHeight(vec2 xz) {
+  vec3 sampleColor = textureLod(uTerrain, clamp(terrainUV(xz), 0.0, 1.0), 4.0).rgb;
+  float luminance = dot(sampleColor, vec3(0.2126, 0.7152, 0.0722));
+  return smoothstep(0.19, 0.76, luminance) * 1.34 - 0.12;
+}
 void main() {
   vWorld = aPosition;
-  gl_Position = uVP * vec4(aPosition.x, -0.035, aPosition.y, 1.0);
+  gl_Position = uVP * vec4(aPosition.x, terrainHeight(aPosition) - 0.035, aPosition.y, 1.0);
 }`;
 
 const groundFragment = `#version 300 es
@@ -165,6 +203,12 @@ float hash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
   p += dot(p, p + 45.32);
   return fract(p.x * p.y);
+}
+float sdSegment(vec2 p, vec2 a, vec2 b) {
+  vec2 pa = p - a;
+  vec2 ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h);
 }
 void main() {
   float fine = hash(floor(vWorld * 13.0));
@@ -184,6 +228,41 @@ void main() {
   vec3 color = mix(deepest, soilGreen, fine * 0.42 + broad * 0.28);
   color = mix(color, lifted, max(0.0, broad - 0.70) * 0.26);
   color = mix(color, deepest, min(0.48,pathA * 0.20 + pathB * 0.18 + crossPath * 0.13 + pocket * 0.22));
+
+  // Open garden pocket in the far-left corner of the reference: dry mottled
+  // soil, a pale hose, and an irregular fringe where grass spills back in.
+  vec2 patchPoint = vec2((vWorld.x + 3.75) / 2.65, (vWorld.y + 12.85) / 2.45);
+  float patchEdge = length(patchPoint)
+    + sin(vWorld.x * 2.3 + vWorld.y * 1.1) * 0.075
+    + sin(vWorld.y * 3.1 - vWorld.x * 0.7) * 0.045;
+  float soilMask = 1.0 - smoothstep(0.76, 1.07, patchEdge);
+  float soilSpeckle = hash(floor(vWorld * 7.0));
+  float soilBroad = sin(vWorld.x * 1.9 - vWorld.y * 1.2) * 0.5 + 0.5;
+  vec3 drySoil = mix(
+    vec3(0.3333, 0.3176, 0.2078),
+    vec3(0.5020, 0.4745, 0.2863),
+    soilSpeckle * 0.42 + soilBroad * 0.34
+  );
+  drySoil = mix(drySoil, vec3(0.4157, 0.4314, 0.2588), max(0.0, soilBroad - 0.58) * 0.34);
+  color = mix(color, drySoil, soilMask * 0.96);
+
+  vec2 hoseA = vec2(-5.20, -12.28);
+  vec2 hoseB = vec2(-4.55, -12.55);
+  vec2 hoseC = vec2(-3.86, -12.98);
+  vec2 hoseD = vec2(-3.42, -13.54);
+  vec2 hoseE = vec2(-3.64, -14.02);
+  vec2 hoseF = vec2(-4.35, -14.16);
+  float hoseDistance = min(
+    min(sdSegment(vWorld, hoseA, hoseB), sdSegment(vWorld, hoseB, hoseC)),
+    min(
+      min(sdSegment(vWorld, hoseC, hoseD), sdSegment(vWorld, hoseD, hoseE)),
+      sdSegment(vWorld, hoseE, hoseF)
+    )
+  );
+  float hoseShadow = 1.0 - smoothstep(0.070, 0.145, hoseDistance);
+  float hose = 1.0 - smoothstep(0.035, 0.075, hoseDistance);
+  color = mix(color, vec3(0.1294, 0.1294, 0.0941), hoseShadow * soilMask * 0.46);
+  color = mix(color, vec3(0.8510, 0.8549, 0.7725), hose * soilMask * 0.98);
   color *= 1.12;
   outColor = vec4(color, 1.0);
 }`;
@@ -192,6 +271,7 @@ type Vec3 = [number, number, number];
 type Clump = [
   number, number, number, number, number,
   number, number, number, number, number,
+  number?,
 ];
 
 const clumps: Clump[] = [
@@ -208,6 +288,10 @@ const clumps: Clump[] = [
 
   [-1.95,-12.52,2.12,.30,-.22,.22,.98,.22,.49,.67],[3.45,-9.78,2.42,.34,.18,.91,.99,.26,.62,.71],[-3.18,-7.14,2.28,.36,-.31,.40,.97,.24,.44,.72],[1.86,-4.39,2.62,.38,.27,.78,.99,.28,.68,.66],[-2.44,-.94,2.75,.42,-.24,.28,.98,.30,.52,.70],[2.04,2.37,3.02,.45,.20,.88,.99,.33,.72,.64],[-1.06,6.02,3.32,.52,-.18,.38,.99,.34,.57,.68],
   [-3.92,-15.06,1.86,.42,.38,.62,.97,.34,.42,.62],[1.58,-12.04,2.42,.50,-.33,.25,.99,.36,.58,.58],[-.62,-8.68,3.04,.62,.18,.82,.98,.38,.46,.62],[3.08,-5.76,2.74,.68,-.25,.42,.99,.36,.66,.58],[-3.18,-3.02,3.12,.78,.30,.95,.98,.38,.52,.60],[.42,.38,3.82,.92,-.18,.35,.99,.38,.62,.56],[-1.68,3.72,4.58,1.05,.22,.78,.99,.39,.50,.54],[1.04,7.08,5.96,1.34,-.12,.28,.99,.39,.59,.52],
+
+  // Low chartreuse planting clusters bordering the exposed garden pocket.
+  [-4.08,-12.62,.98,.62,-.18,.32,.18,.96,.82,.82,1],
+  [-2.55,-14.42,.96,.58,.12,.70,.22,.97,.88,.80,1],
 ];
 
 function shader(gl: WebGL2RenderingContext, type: number, source: string) {
@@ -307,7 +391,7 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
 
   clumps.forEach(([
     centerX,centerZ,radiusX,radiusZ,rotation,flow,collapse,
-    density,tone,lengthScale,
+    density,tone,lengthScale,species = 0,
   ], clumpIndex) => {
     const clumpPhase = seeded(clumpIndex, 20) * Math.PI * 2;
     const foreground = Math.max(0, Math.min(1, (centerZ + 2) / 10));
@@ -369,19 +453,32 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
         && Math.sin(angle * 3 + clumpPhase) > .42 ? 1 : 0;
       const edgeLength = .90 + (1 - rootRatio) * .12
         + Math.max(-.13,Math.min(.13,(rootX * flowX + rootZ * flowZ) / meanRadius * .12));
-      const height = meanRadius * .98 * strandNoise * edgeLength
+      let height = meanRadius * .98 * strandNoise * edgeLength
         * irregularProfile * strayLength * lengthScale * clumpLength
         * (1 - foreground * .10) * (1 - flattenedMat * .47)
         * (1 - contactPatch * .23) * (1 - baseBlade * .19)
         * (1 - tangled * .06);
+      const worldRootX = organicCenterX + rootX;
+      const worldRootZ = organicCenterZ + rootZ;
+      if (species < .5) {
+        const gardenDistance = Math.hypot(
+          (worldRootX + 3.75) / 2.65,
+          (worldRootZ + 12.85) / 2.45,
+        );
+        const gardenClear = Math.max(0,Math.min(1,(1.08 - gardenDistance) / .30));
+        height *= 1 - gardenClear * .96;
+      } else {
+        height *= .76;
+      }
       const rootLift = .018 + (1 - rootRatio) * .045 * (1 - collapse * .54)
         + seeded(index, 12) * .018;
-      instances[offset] = organicCenterX + rootX;
+      instances[offset] = worldRootX;
       instances[offset+1] = rootLift;
-      instances[offset+2] = organicCenterZ + rootZ;
+      instances[offset+2] = worldRootZ;
       instances[offset+3] = height;
-      instances[offset+4] = (.0048 + seeded(index, 4) * .0047)
-        * (1 + baseBlade * .10);
+      instances[offset+4] = species > .5
+        ? .011 + seeded(index, 4) * .009
+        : (.0048 + seeded(index, 4) * .0047) * (1 + baseBlade * .10);
       instances[offset+5] = direction;
       instances[offset+6] = direction + Math.PI * .5 + (seeded(index, 6) - .5) * .62;
       instances[offset+7] = seeded(index, 7) * Math.PI * 2;
@@ -390,7 +487,7 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
         tone * .68 + seeded(index, 8) * .28 + foreground * .08
         + (family > .72 ? .24 : 0) - (family < .11 ? .13 : 0)
       ));
-      instances[offset+8] = bladeShade + flattenedMat;
+      instances[offset+8] = species > .5 ? 2 + bladeShade : bladeShade + flattenedMat;
       instances[offset+9] = clumpPhase;
       instances[offset+10] = Math.max(.26,Math.min(.98,
         .14 + collapse * .48 + foreground * .03 + rootRatio * .13
@@ -425,13 +522,53 @@ function groundGeometry(gl: WebGL2RenderingContext) {
   const vao = gl.createVertexArray();
   const buffer = gl.createBuffer();
   if (!vao || !buffer) throw new Error("Ground allocation failed");
+  const columns = 120;
+  const rows = 204;
+  const vertices = new Float32Array(columns * rows * 12);
+  let offset = 0;
+  for (let row=0;row<rows;row+=1) {
+    const z0 = -22 + (row / rows) * 34;
+    const z1 = -22 + ((row + 1) / rows) * 34;
+    for (let column=0;column<columns;column+=1) {
+      const x0 = -10 + (column / columns) * 20;
+      const x1 = -10 + ((column + 1) / columns) * 20;
+      vertices.set([x0,z0,x1,z0,x0,z1,x0,z1,x1,z0,x1,z1],offset);
+      offset += 12;
+    }
+  }
   gl.bindVertexArray(vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-10,-22,10,-22,-10,12,-10,12,10,-22,10,12]),gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0);
   gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
   gl.bindVertexArray(null);
-  return { vao, buffer };
+  return { vao, buffer, vertices:vertices.length / 2 };
+}
+
+function createTerrainTexture(gl: WebGL2RenderingContext) {
+  const texture = gl.createTexture();
+  if (!texture) throw new Error("Terrain texture allocation failed");
+  gl.bindTexture(gl.TEXTURE_2D,texture);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texImage2D(
+    gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,
+    new Uint8Array([132,111,78,255]),
+  );
+  gl.generateMipmap(gl.TEXTURE_2D);
+  const image = new Image();
+  image.decoding = "async";
+  image.onload = () => {
+    gl.bindTexture(gl.TEXTURE_2D,texture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+  };
+  image.src = "/topography-terrain.png";
+  return { texture, image };
 }
 
 function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
@@ -443,13 +580,18 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
   const requested = matchMedia("(max-width:700px)").matches ? 90000 : 132000;
   const grass = grassGeometry(gl,requested);
   const ground = groundGeometry(gl);
+  const terrain = createTerrainTexture(gl);
   const view = lookAt(camera,[0,.30,-2.35]);
   const grassVP = gl.getUniformLocation(grassProgram,"uVP");
   const groundVP = gl.getUniformLocation(groundProgram,"uVP");
+  const grassTerrain = gl.getUniformLocation(grassProgram,"uTerrain");
+  const groundTerrain = gl.getUniformLocation(groundProgram,"uTerrain");
   const time = gl.getUniformLocation(grassProgram,"uTime");
   const windScale = gl.getUniformLocation(grassProgram,"uWindScale");
   const cameraUniform = gl.getUniformLocation(grassProgram,"uCamera");
-  if (!grassVP || !groundVP || !time || !windScale || !cameraUniform) throw new Error("Missing uniforms");
+  if (!grassVP || !groundVP || !grassTerrain || !groundTerrain || !time || !windScale || !cameraUniform) {
+    throw new Error("Missing uniforms");
+  }
 
   let frame = 0;
   let windClock = 0;
@@ -474,12 +616,16 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     gl.disable(gl.CULL_FACE);
     gl.clearColor(.0980,.1569,.0941,1);
     gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D,terrain.texture);
     gl.useProgram(groundProgram);
     gl.uniformMatrix4fv(groundVP,false,vp);
+    gl.uniform1i(groundTerrain,0);
     gl.bindVertexArray(ground.vao);
-    gl.drawArrays(gl.TRIANGLES,0,6);
+    gl.drawArrays(gl.TRIANGLES,0,ground.vertices);
     gl.useProgram(grassProgram);
     gl.uniformMatrix4fv(grassVP,false,vp);
+    gl.uniform1i(grassTerrain,0);
     gl.uniform1f(time,windClock);
     gl.uniform1f(windScale,amount);
     gl.uniform3fv(cameraUniform,camera);
@@ -495,6 +641,8 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     gl.deleteVertexArray(grass.vao);
     gl.deleteBuffer(ground.buffer);
     gl.deleteVertexArray(ground.vao);
+    terrain.image.onload = null;
+    gl.deleteTexture(terrain.texture);
     gl.deleteProgram(grassProgram);
     gl.deleteProgram(groundProgram);
   };
