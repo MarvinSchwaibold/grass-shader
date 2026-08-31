@@ -48,14 +48,16 @@ body {
 }
 
 .wind-drawer {
+  --wind-shell-inset: 3px;
+  --wind-shell-radius: 14px;
   position: absolute;
   z-index: 3;
   top: calc(100% - 43px);
   left: 12.5%;
   width: 75%;
-  padding: 3px;
+  padding: var(--wind-shell-inset);
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--wind-shell-radius);
   background: #ffffff;
   box-shadow: 0 10px 28px rgb(18 25 17 / 11%);
   transform: translateY(-50%);
@@ -161,7 +163,7 @@ body {
   width: 100%;
   height: 29px;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: calc(var(--wind-shell-radius) - var(--wind-shell-inset));
   background: #f1f1ef;
   color: #ffffff;
   font: 500 8.8px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -181,7 +183,7 @@ body {
   z-index: 1;
   width: var(--wind-fill);
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: inherit;
   background: #050505;
 }
 
