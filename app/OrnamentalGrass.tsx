@@ -45,19 +45,20 @@ void main() {
   vec2 windDirection = normalize(vec2(0.78, 0.63));
 
   float rollingFront = sin(
-    dot(aRoot.xz, vec2(0.41, 0.71)) * 0.76
-    - uTime * 1.04
-    + sin(aRoot.x * 0.27 + uTime * 0.23) * 0.38
+    dot(aRoot.xz, vec2(0.41, 0.71)) * 0.52
+    - uTime * 0.82
+    + sin(aRoot.x * 0.22 + uTime * 0.19) * 0.28
   );
-  float clumpBreath = sin(uTime * 1.62 + aMotion.z) * 0.5 + 0.5;
+  float clumpBreath = sin(uTime * 1.28 + aMotion.z) * 0.5 + 0.5;
   float secondFront = sin(
-    dot(aRoot.xz, vec2(-0.18, 0.56)) * 1.18
-    - uTime * 1.46 + aMotion.z * 0.24
+    dot(aRoot.xz, vec2(-0.18, 0.56)) * 0.86
+    - uTime * 1.11 + aMotion.z * 0.34
   ) * 0.5 + 0.5;
-  float gust = smoothstep(-0.58, 0.72, rollingFront);
-  float wind = 0.14 + gust * 0.37 + clumpBreath * 0.12 + secondFront * 0.08;
-  wind += sin(uTime * 3.8 + aMotion.x) * 0.025
-    + sin(uTime * 6.4 + aMotion.x * 1.7) * 0.012;
+  float gust = smoothstep(-0.68, 0.62, rollingFront);
+  float peakGust = pow(gust, 2.65);
+  float wind = 0.12 + gust * 0.36 + clumpBreath * 0.17 + secondFront * 0.09;
+  wind += sin(uTime * 2.20 + aMotion.z) * 0.008
+    + sin(uTime * 3.10 + aMotion.z * 0.63) * 0.004;
   wind = clamp(wind * uWindScale, 0.05, 1.05);
 
   float curve = t * t;
@@ -77,25 +78,26 @@ void main() {
     bendDirection.x * curlSin + bendDirection.y * curlCos
   );
   vec2 rippleDirection = vec2(-windDirection.y, windDirection.x);
-  float ripple = sin(aMotion.x + uTime * 2.25 + t * 2.7) * 0.018 * height;
+  float ripple = sin(aMotion.x + uTime * 1.74 + t * 2.7) * 0.006 * height;
 
   float naturalReach = height * (0.050 * t + lean * 0.62 * arch);
-  float gustReach = height * wind * (0.13 + gust * 0.10) * curve;
+  float gustReach = height * wind * (0.12 + gust * 0.10 + peakGust * 0.18) * curve;
   vec3 world = aRoot;
   world.y += terrainY;
   world.xz += curveDirection * naturalReach;
   world.xz += windDirection * gustReach;
   world.xz += rippleDirection * ripple * tip;
-  world.y += height * t * (
-    1.0 - lean * 0.64 * arch - wind * 0.22 * tip
+  float verticalLift = max(0.08,
+    1.0 - lean * 0.58 * arch - wind * 0.16 * tip - peakGust * 0.42 * tip
   );
+  world.y += height * t * verticalLift;
   world.xz += bladeSide * side * width * taper;
 
   vec2 horizontalTangent = curveDirection * (lean * 1.02 + 0.08)
-    + windDirection * wind * (0.42 + gust * 0.18);
+    + windDirection * (wind * (0.36 + gust * 0.14) + peakGust * 0.42);
   vec3 tangent = normalize(vec3(
     horizontalTangent.x * arch,
-    max(0.13, 1.0 - lean * 0.72 * arch - wind * 0.36 * tip),
+    max(0.08, 1.0 - lean * 0.70 * arch - wind * 0.28 * tip - peakGust * 0.48 * tip),
     horizontalTangent.y * arch
   ));
   vNormal = normalize(cross(vec3(bladeSide.x, 0.0, bladeSide.y), tangent));
@@ -259,7 +261,7 @@ const continuityClumps: Clump[] = Array.from({ length: 78 }, (_, index) => {
     .54 + seeded(index + 300, 7) * .32,
     .31 + seeded(index + 300, 8) * .075,
     .12 + seeded(index + 300, 9) * .52,
-    .60 + seeded(index + 300, 10) * .12,
+    .50 + seeded(index + 300, 10) * .08,
   ];
 });
 
@@ -436,8 +438,8 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       if (species > .5) {
         height *= .76;
       }
-      const roundedShoulder = Math.pow(Math.max(0,1 - rootRatio),1.28);
-      const moundLift = roundedShoulder * meanRadius * .29
+      const roundedShoulder = Math.pow(Math.max(0,1 - rootRatio),1.12);
+      const moundLift = roundedShoulder * meanRadius * .36
         * (1 - flattenedMat * .84);
       const rootLift = .018 + moundLift
         + (1 - rootRatio) * .045 * (1 - collapse * .54)
