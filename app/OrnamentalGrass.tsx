@@ -160,6 +160,7 @@ in float vShade;
 in float vGust;
 uniform vec3 uCamera;
 uniform sampler2D uReferenceColorField;
+uniform sampler2D uGeneratedGradientField;
 uniform vec2 uResolution;
 out vec4 outColor;
 
@@ -257,6 +258,26 @@ void main() {
   float refinedLuma = dot(color, vec3(0.2126, 0.7152, 0.0722));
   float shadowLift = 1.0 - smoothstep(0.11, 0.29, refinedLuma);
   color += vec3(0.016, 0.022, 0.018) * shadowLift;
+
+  // The supplied blurred comparison provides an explicit low-frequency
+  // correction at every screen coordinate. Apply most of that measured
+  // difference while retaining the blade-scale lighting variation.
+  vec3 generatedGradientField = texture(uGeneratedGradientField, fieldUV).rgb;
+  float generatedGradientLuma = dot(
+    generatedGradientField, vec3(0.2126, 0.7152, 0.0722)
+  );
+  vec3 generatedGradientChroma = generatedGradientField
+    / max(generatedGradientLuma, 0.055);
+  vec3 chromaRatio = clamp(
+    referenceChroma / max(generatedGradientChroma, vec3(0.16)),
+    vec3(0.78), vec3(1.22)
+  );
+  color *= mix(vec3(1.0), chromaRatio, 0.24);
+
+  float comparisonLuma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+  float spatialValueOffset = (referenceLuma - generatedGradientLuma) * 0.72;
+  float correctedLuma = clamp(comparisonLuma + spatialValueOffset, 0.052, 0.965);
+  color *= correctedLuma / max(comparisonLuma, 0.032);
   color = min(color, silver);
   outColor = vec4(color, 1.0);
 }`;
@@ -664,18 +685,23 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
   const moundGrass = moundGrassGeometry(gl,mobile ? 82000 : 136000);
   const terrain = createTerrainTexture(gl);
   const referenceColorField = createColorFieldTexture(
-    gl,"/reference-color-field.png",[107,123,65,255],
+    gl,"/reference-color-field-v2.png",[118,132,75,255],
+  );
+  const generatedGradientField = createColorFieldTexture(
+    gl,"/generated-gradient-field.png",[107,123,68,255],
   );
   const view = lookAt(camera,[0,.30,-2.35]);
   const grassVP = gl.getUniformLocation(grassProgram,"uVP");
   const grassTerrain = gl.getUniformLocation(grassProgram,"uTerrain");
   const referenceColorFieldUniform = gl.getUniformLocation(grassProgram,"uReferenceColorField");
+  const generatedGradientFieldUniform = gl.getUniformLocation(grassProgram,"uGeneratedGradientField");
   const resolutionUniform = gl.getUniformLocation(grassProgram,"uResolution");
   const time = gl.getUniformLocation(grassProgram,"uTime");
   const windScale = gl.getUniformLocation(grassProgram,"uWindScale");
   const cameraUniform = gl.getUniformLocation(grassProgram,"uCamera");
   if (
-    !grassVP || !grassTerrain || !referenceColorFieldUniform || !resolutionUniform || !time || !windScale
+    !grassVP || !grassTerrain || !referenceColorFieldUniform || !generatedGradientFieldUniform
+    || !resolutionUniform || !time || !windScale
     || !cameraUniform
   ) {
     throw new Error("Missing uniforms");
@@ -708,10 +734,13 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     gl.bindTexture(gl.TEXTURE_2D,terrain.texture);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D,referenceColorField.texture);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D,generatedGradientField.texture);
     gl.useProgram(grassProgram);
     gl.uniformMatrix4fv(grassVP,false,vp);
     gl.uniform1i(grassTerrain,0);
     gl.uniform1i(referenceColorFieldUniform,1);
+    gl.uniform1i(generatedGradientFieldUniform,2);
     gl.uniform2f(resolutionUniform,width,height);
     gl.uniform1f(time,windClock);
     gl.uniform1f(windScale,amount);
@@ -735,6 +764,8 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     gl.deleteTexture(terrain.texture);
     referenceColorField.image.onload = null;
     gl.deleteTexture(referenceColorField.texture);
+    generatedGradientField.image.onload = null;
+    gl.deleteTexture(generatedGradientField.texture);
     gl.deleteProgram(grassProgram);
   };
 }
