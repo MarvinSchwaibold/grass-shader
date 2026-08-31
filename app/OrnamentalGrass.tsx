@@ -69,9 +69,24 @@ void main() {
     + secondFront * 0.38, 0.0, 1.0);
   float peakGust = pow(gust, 2.20);
   float extremeWind = smoothstep(1.0, 3.6, uWindScale);
+  float chaosA = sin(dot(aRoot.xz, vec2(0.91, -0.47)) * 1.16
+    - uTime * 3.60 + aMotion.z * 0.72);
+  float chaosB = sin(dot(aRoot.xz, vec2(-0.38, 0.96)) * 1.74
+    - uTime * 4.85 + aMotion.z * 1.31);
+  float chaosC = sin(dot(aRoot.xz, vec2(0.52, 0.68)) * 2.43
+    + uTime * 2.95 + aMotion.x * 0.19);
+  float chaosPulse = clamp(0.52 + chaosA * 0.25 + chaosB * 0.16
+    + chaosC * 0.11, 0.0, 1.0);
+  float individualTurn = sin(aMotion.x * 1.23 + uTime * 6.20
+    + dot(aRoot.xz, vec2(0.21, -0.17)));
+  vec2 crossWind = vec2(-windDirection.y, windDirection.x);
+  vec2 chaoticWindDirection = normalize(windDirection
+    + crossWind * (chaosA * 1.06 + individualTurn * 0.52) * extremeWind
+    + radial * (chaosB * 0.46 + individualTurn * 0.26) * extremeWind);
   float wind = 0.11 + gust * 0.48 + clumpBreath * 0.10 + secondFront * 0.045;
   wind += sin(uTime * 2.20 + aMotion.z) * 0.008
     + sin(uTime * 3.10 + aMotion.z * 0.63) * 0.004;
+  wind *= mix(1.0, 0.58 + chaosPulse * 1.04, extremeWind);
   wind = clamp(wind * uWindScale, 0.05, 2.10);
 
   float curve = t * t;
@@ -80,7 +95,7 @@ void main() {
   float taper = pow(max(1.0 - t, 0.0), 0.66);
   float lean = aMotion.w;
   vec2 bendDirection = normalize(radial * (1.22 - wind * 0.34)
-    + windDirection * (0.06 + wind * 0.46)
+    + chaoticWindDirection * (0.06 + wind * 0.46)
     + downhill * slopeAmount * 0.11);
   float curlAngle = sin(aMotion.x * 1.37) * 0.22 * arch
     + sin(aMotion.x * 0.71) * 0.06 * tip;
@@ -90,13 +105,16 @@ void main() {
     bendDirection.x * curlCos - bendDirection.y * curlSin,
     bendDirection.x * curlSin + bendDirection.y * curlCos
   );
-  vec2 rippleDirection = vec2(-windDirection.y, windDirection.x);
-  float ripple = sin(aMotion.x + uTime * 1.74 + t * 2.7) * 0.006 * height;
+  vec2 rippleDirection = vec2(-chaoticWindDirection.y, chaoticWindDirection.x);
+  float bladeFlutter = sin(aMotion.x * 1.71 + uTime * 5.40 + t * 3.2)
+    + sin(aMotion.x * 0.83 - uTime * 7.10 + t * 5.1) * 0.46;
+  float ripple = sin(aMotion.x + uTime * 1.74 + t * 2.7) * 0.006 * height
+    + bladeFlutter * extremeWind * height * (0.020 + gust * 0.028);
 
   float naturalReach = height * (0.050 * t + lean * 0.62 * arch);
   float gustReach = height * wind * (
     0.12 + gust * 0.10 + peakGust * 0.18
-    + extremeWind * (0.18 + gust * 0.28 + peakGust * 0.42)
+    + extremeWind * (0.09 + gust * 0.16 + peakGust * 0.22)
   ) * curve;
   vec3 world = aRoot;
   world.y += terrainY;
@@ -104,18 +122,20 @@ void main() {
   // gravity and wind bend them across the surface.
   world.xz += terrainNormal.xz * height * t * (0.30 - arch * 0.08);
   world.xz += curveDirection * naturalReach;
-  world.xz += windDirection * gustReach;
+  world.xz += chaoticWindDirection * gustReach;
   world.xz += rippleDirection * ripple * tip;
   float verticalLift = max(0.018,
     1.0 - lean * 0.58 * arch - wind * 0.16 * tip - peakGust * 0.42 * tip
       - extremeWind * (0.28 + gust * 0.20 + peakGust * 0.38) * tip
+      - extremeWind * abs(chaosB) * 0.14 * tip
   );
   world.y += height * t * verticalLift * terrainNormal.y;
   world.xz += bladeSide * side * width * taper;
 
   vec2 horizontalTangent = curveDirection * (lean * 1.02 + 0.08)
-    + windDirection * (wind * (0.36 + gust * 0.14) + peakGust * 0.42
-      + extremeWind * (0.34 + gust * 0.38 + peakGust * 0.62));
+    + chaoticWindDirection * (wind * (0.36 + gust * 0.14) + peakGust * 0.42
+      + extremeWind * (0.34 + gust * 0.38 + peakGust * 0.62))
+    + rippleDirection * chaosC * extremeWind * 0.38;
   vec3 tangent = normalize(vec3(
     horizontalTangent.x * arch + terrainNormal.x * (1.0 - arch) * 0.34,
     max(0.018, 1.0 - lean * 0.70 * arch - wind * 0.28 * tip - peakGust * 0.48 * tip
