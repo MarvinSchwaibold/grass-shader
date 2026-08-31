@@ -35,7 +35,69 @@ body {
 .grass-experience {
   display: grid;
   justify-items: center;
-  gap: 11px;
+}
+
+.generated-stage-shell {
+  position: relative;
+  padding-bottom: 43px;
+  isolation: isolate;
+}
+
+.generated-stage {
+  z-index: 2;
+}
+
+.wind-drawer {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% - 43px);
+  left: 12.5%;
+  width: 75%;
+  padding: 3px;
+  border: 1px solid rgb(24 31 21 / 9%);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgb(18 25 17 / 11%);
+  transform-origin: center top;
+  will-change: transform;
+}
+
+.wind-drawer.is-open {
+  z-index: 3;
+}
+
+.wind-drawer:not(.is-open) .wind-control {
+  pointer-events: none;
+}
+
+.wind-drawer-trigger {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% - 53px);
+  left: 12%;
+  width: 76%;
+  height: 39px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.wind-drawer-trigger.is-open {
+  pointer-events: none;
+}
+
+.wind-drawer-trigger:focus,
+.reference-tray-trigger:focus {
+  outline: 0;
+}
+
+.wind-drawer:has(+ .wind-drawer-trigger:focus-visible),
+.reference-media-tray:has(+ .reference-tray-trigger:focus-visible) {
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 4px rgb(30 32 29 / 68%),
+    0 10px 28px rgb(18 25 17 / 11%);
 }
 
 .reference-experience {
@@ -65,29 +127,30 @@ body {
   border: 1px solid rgb(24 31 21 / 9%);
   border-radius: 10px;
   background: #ffffff;
+  box-shadow: 0 10px 28px rgb(18 25 17 / 11%);
   transform-origin: center right;
-  will-change: transform, box-shadow;
+  will-change: transform;
 }
 
 .reference-media-tray.is-open {
   z-index: 3;
 }
 
-.reference-tray-peek {
+.reference-tray-trigger {
   position: absolute;
-  z-index: 2;
-  inset: 0 0 0 auto;
-  width: 11px;
+  z-index: 4;
+  top: 10px;
+  right: -24px;
+  width: 34px;
+  height: clamp(230px, 22vw, 315px);
   padding: 0;
   border: 0;
-  border-radius: 0 10px 10px 0;
   background: transparent;
   cursor: pointer;
 }
 
-.reference-media-tray.is-open .reference-tray-peek {
+.reference-tray-trigger.is-open {
   pointer-events: none;
-  opacity: 0;
 }
 
 .reference-map-button {
@@ -106,7 +169,6 @@ body {
 
 .reference-media-tray:not(.is-open) .reference-map-button {
   pointer-events: none;
-  opacity: 0;
 }
 
 .reference-map-button:hover {
@@ -162,7 +224,7 @@ body {
   --wind-stretch: 1;
   position: relative;
   display: block;
-  width: 70.4%;
+  width: 100%;
   height: 29px;
   overflow: hidden;
   border-radius: 10px;
@@ -316,8 +378,17 @@ body {
   .reference-experience { gap: 8px; }
   .reference-caption { height: 27px; }
   .wind-control {
-    width: 73.6%;
+    width: 100%;
     height: 24px;
+  }
+  .wind-drawer {
+    left: 11%;
+    width: 78%;
+    padding: 3px;
+  }
+  .wind-drawer-trigger {
+    left: 10%;
+    width: 80%;
   }
   .wind-control__filled-label,
   .wind-control__label { left: 10px; }
@@ -329,6 +400,11 @@ body {
     padding: 4px;
     gap: 3px;
     border-radius: 8px;
+  }
+  .reference-tray-trigger {
+    right: -17px;
+    width: 25px;
+    height: 190px;
   }
   .reference-map {
     border: 0;

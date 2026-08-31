@@ -1,11 +1,32 @@
 "use client";
 
+import { animate } from "motion";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { motion } from "motion/react";
+import { motion, useMotionValue, useTransform } from "motion/react";
 
 const WIND_MIN = .35;
 const WIND_MAX = 3.6;
 const DEFAULT_WIND_STRENGTH = 50;
+const FLUID_INTERFACE_SPRING = {
+  stiffness: 650,
+  damping: 46,
+  mass: .7,
+};
+
+function useFluidReveal(target: number) {
+  const progress = useMotionValue(target);
+  const animation = useRef<ReturnType<typeof animate> | null>(null);
+
+  useEffect(() => {
+    animation.current = animate(progress,target,{
+      type: "spring",
+      ...FLUID_INTERFACE_SPRING,
+    });
+  },[progress,target]);
+
+  useEffect(() => () => animation.current?.stop(),[]);
+  return progress;
+}
 
 function windAmountFromStrength(strength: number) {
   const normalized = Math.max(0,Math.min(100,strength)) / 100;
@@ -946,9 +967,23 @@ export function OrnamentalGrass() {
   const [activeReferenceId, setActiveReferenceId] = useState("recording");
   const [isReferenceTrayOpen, setIsReferenceTrayOpen] = useState(false);
   const [isReferenceTrayHovering, setIsReferenceTrayHovering] = useState(false);
+  const [isWindDrawerOpen, setIsWindDrawerOpen] = useState(false);
+  const [isWindDrawerHovering, setIsWindDrawerHovering] = useState(false);
   const [windStrength, setWindStrength] = useState(DEFAULT_WIND_STRENGTH);
   const [elasticPull, setElasticPull] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const referenceReveal = useFluidReveal(
+    isReferenceTrayOpen ? 1 : isReferenceTrayHovering ? .56 : 0,
+  );
+  const referenceTrayX = useTransform(referenceReveal,[0,.56,1],[-5,-1,0]);
+  const referenceTrayY = useTransform(referenceReveal,[0,.56,1],[10,6,0]);
+  const referenceTrayScale = useTransform(referenceReveal,[0,.56,1],[.965,.985,1]);
+  const referenceTrayGap = useTransform(referenceReveal,[0,.56,1],["2px","7px","3px"]);
+  const windReveal = useFluidReveal(
+    isWindDrawerOpen ? 1 : isWindDrawerHovering ? .56 : 0,
+  );
+  const windDrawerY = useTransform(windReveal,[0,.56,1],[-28,-14,0]);
+  const windDrawerScale = useTransform(windReveal,[0,.56,1],[.97,.985,1]);
   useEffect(() => {
     if (!ref.current) return;
     try { return start(ref.current,windAmount,activeStudy); }
@@ -975,6 +1010,27 @@ export function OrnamentalGrass() {
       document.removeEventListener("keydown",dismissTrayWithKeyboard);
     };
   },[isReferenceTrayOpen]);
+  useEffect(() => {
+    if (!isWindDrawerOpen) return;
+    const dismissDrawer = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-wind-drawer]")) return;
+      setIsWindDrawerHovering(false);
+      setIsWindDrawerOpen(false);
+    };
+    const dismissDrawerWithKeyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsWindDrawerHovering(false);
+        setIsWindDrawerOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown",dismissDrawer);
+    document.addEventListener("keydown",dismissDrawerWithKeyboard);
+    return () => {
+      document.removeEventListener("pointerdown",dismissDrawer);
+      document.removeEventListener("keydown",dismissDrawerWithKeyboard);
+    };
+  },[isWindDrawerOpen]);
   const activeReference = REFERENCE_MEDIA.find((media) => media.id === activeReferenceId)
     ?? REFERENCE_MEDIA[0];
   const referenceChoices = REFERENCE_MEDIA;
@@ -987,28 +1043,41 @@ export function OrnamentalGrass() {
   return (
     <div className="grass-comparison">
       <section className="grass-experience" aria-label="Generated grass simulation">
-        <figure className="grass-stage">
-          <canvas
-            ref={ref}
-            className="grass-canvas"
-            role="img"
-            aria-label="Mounded ornamental grass moving continuously in layered coastal wind"
-          />
-          <div className="grass-fallback" aria-hidden="true" />
-          <figcaption className="visually-hidden">
-            Dense mounds of fine ornamental grass moving continuously in bright
-            coastal wind.
-          </figcaption>
-        </figure>
-        <label
-          className={`wind-control${isDragging ? " is-dragging" : ""}${windStrength >= 100 ? " is-max" : ""}`}
-          style={{
-            "--wind-fill": windFill,
-            "--wind-pull": `${elasticPull * .725}px`,
-            "--wind-stretch": 1 + Math.abs(elasticPull) * .003,
-            transformOrigin: elasticPull < 0 ? "right center" : "left center",
-          } as CSSProperties}
-        >
+        <div className="generated-stage-shell">
+          <figure className="grass-stage generated-stage">
+            <canvas
+              ref={ref}
+              className="grass-canvas"
+              role="img"
+              aria-label="Mounded ornamental grass moving continuously in layered coastal wind"
+            />
+            <div className="grass-fallback" aria-hidden="true" />
+            <figcaption className="visually-hidden">
+              Dense mounds of fine ornamental grass moving continuously in bright
+              coastal wind.
+            </figcaption>
+          </figure>
+          <motion.div
+            className={`wind-drawer${isWindDrawerOpen ? " is-open" : ""}`}
+            data-wind-drawer
+            style={{ y: windDrawerY, scale: windDrawerScale }}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              if (isWindDrawerOpen && event.target === event.currentTarget) {
+                setIsWindDrawerHovering(false);
+                setIsWindDrawerOpen(false);
+              }
+            }}
+          >
+            <label
+              className={`wind-control${isDragging ? " is-dragging" : ""}${windStrength >= 100 ? " is-max" : ""}`}
+              style={{
+                "--wind-fill": windFill,
+                "--wind-pull": `${elasticPull * .725}px`,
+                "--wind-stretch": 1 + Math.abs(elasticPull) * .003,
+                transformOrigin: elasticPull < 0 ? "right center" : "left center",
+              } as CSSProperties}
+            >
           <span className="wind-control__progress" aria-hidden="true">
             <span className="wind-control__filled-label" aria-hidden="true">Wind</span>
             <span className="wind-control__filled-marker" />
@@ -1023,6 +1092,7 @@ export function OrnamentalGrass() {
             max="100"
             step="1"
             value={windStrength}
+            tabIndex={isWindDrawerOpen ? 0 : -1}
             aria-label="Wind strength"
             aria-valuetext={`${Math.round(windStrength)} out of 100`}
             onChange={(event) => {
@@ -1078,7 +1148,20 @@ export function OrnamentalGrass() {
               setElasticPull(0);
             }}
           />
-        </label>
+            </label>
+          </motion.div>
+          <button
+            className={`wind-drawer-trigger${isWindDrawerOpen ? " is-open" : ""}`}
+            type="button"
+            aria-label="Open wind control"
+            aria-expanded={isWindDrawerOpen}
+            onPointerEnter={() => setIsWindDrawerHovering(true)}
+            onPointerLeave={() => setIsWindDrawerHovering(false)}
+            onFocus={() => setIsWindDrawerHovering(true)}
+            onBlur={() => setIsWindDrawerHovering(false)}
+            onClick={() => setIsWindDrawerOpen(true)}
+          />
+        </div>
       </section>
       <section className="reference-experience" aria-label="Original grass reference video">
         <div className="reference-stage-shell">
@@ -1112,35 +1195,12 @@ export function OrnamentalGrass() {
             className={`reference-media-tray${isReferenceTrayOpen ? " is-open" : ""}`}
             data-reference-tray
             aria-label="Reference media"
-            initial={false}
-            animate={isReferenceTrayOpen
-              ? {
-                  x: 0,
-                  y: 0,
-                  scale: 1,
-                  boxShadow: "0 16px 38px rgb(18 25 17 / 14%)",
-                }
-              : isReferenceTrayHovering
-                ? {
-                    x: -2,
-                    y: 7,
-                    scale: .985,
-                    boxShadow: "0 10px 24px rgb(18 25 17 / 12%)",
-                  }
-                : {
-                    x: -6,
-                    y: 10,
-                    scale: .965,
-                    boxShadow: "0 7px 18px rgb(18 25 17 / 10%)",
-                  }}
-            transition={{
-              type: "spring",
-              stiffness: 470,
-              damping: 30,
-              mass: .72,
+            style={{
+              x: referenceTrayX,
+              y: referenceTrayY,
+              scale: referenceTrayScale,
+              rowGap: referenceTrayGap,
             }}
-            onHoverStart={() => setIsReferenceTrayHovering(true)}
-            onHoverEnd={() => setIsReferenceTrayHovering(false)}
             onPointerDown={(event) => {
               event.stopPropagation();
               if (isReferenceTrayOpen && event.target === event.currentTarget) {
@@ -1149,13 +1209,6 @@ export function OrnamentalGrass() {
               }
             }}
           >
-            <button
-              className="reference-tray-peek"
-              type="button"
-              aria-label="Open reference media"
-              aria-expanded={isReferenceTrayOpen}
-              onClick={() => setIsReferenceTrayOpen(true)}
-            />
             {referenceChoices.map((media) => {
               const selected = activeReference.id === media.id;
               return (
@@ -1195,6 +1248,18 @@ export function OrnamentalGrass() {
               );
             })}
           </motion.aside>
+          <button
+            className={`reference-tray-trigger${isReferenceTrayOpen ? " is-open" : ""}`}
+            data-reference-tray
+            type="button"
+            aria-label="Open reference media"
+            aria-expanded={isReferenceTrayOpen}
+            onPointerEnter={() => setIsReferenceTrayHovering(true)}
+            onPointerLeave={() => setIsReferenceTrayHovering(false)}
+            onFocus={() => setIsReferenceTrayHovering(true)}
+            onBlur={() => setIsReferenceTrayHovering(false)}
+            onClick={() => setIsReferenceTrayOpen(true)}
+          />
         </div>
         <p className="reference-caption" aria-live="polite">{activeReference.caption}</p>
       </section>
