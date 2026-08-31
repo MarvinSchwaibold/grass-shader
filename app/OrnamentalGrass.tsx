@@ -44,19 +44,30 @@ void main() {
   vec2 bladeSide = vec2(cos(aShape.w), sin(aShape.w));
   vec2 windDirection = normalize(vec2(0.78, 0.63));
 
-  float rollingFront = sin(
-    dot(aRoot.xz, vec2(0.41, 0.71)) * 0.52
-    - uTime * 0.82
-    + sin(aRoot.x * 0.22 + uTime * 0.19) * 0.28
+  vec2 frontDirection = normalize(vec2(0.56, 0.83));
+  vec2 frontSide = vec2(-frontDirection.y, frontDirection.x);
+  float alongFront = dot(aRoot.xz, frontDirection);
+  float acrossFront = dot(aRoot.xz, frontSide);
+  float clumpLag = sin(aMotion.z * 1.37) * 0.52;
+  float frontPhase = fract((alongFront - uTime * 1.06 + clumpLag) / 18.0);
+  float frontDistance = min(frontPhase, 1.0 - frontPhase) * 18.0;
+  float primaryFront = 1.0 - smoothstep(0.75, 3.15, frontDistance);
+  float primaryRegion = 0.18 + 0.82 * pow(
+    sin(acrossFront * 0.31 - uTime * 0.23 + aMotion.z * 0.11) * 0.5 + 0.5,
+    1.65
   );
-  float clumpBreath = sin(uTime * 1.28 + aMotion.z) * 0.5 + 0.5;
-  float secondFront = sin(
-    dot(aRoot.xz, vec2(-0.18, 0.56)) * 0.86
-    - uTime * 1.11 + aMotion.z * 0.34
-  ) * 0.5 + 0.5;
-  float gust = smoothstep(-0.68, 0.62, rollingFront);
-  float peakGust = pow(gust, 2.65);
-  float wind = 0.12 + gust * 0.36 + clumpBreath * 0.17 + secondFront * 0.09;
+  float secondPhase = fract((dot(aRoot.xz, vec2(-0.84, 0.54))
+    - uTime * 0.68 - clumpLag * 0.42) / 23.0);
+  float secondDistance = min(secondPhase, 1.0 - secondPhase) * 23.0;
+  float secondFront = (1.0 - smoothstep(0.55, 2.45, secondDistance))
+    * (0.24 + 0.76 * pow(sin(aRoot.x * 0.26 + uTime * 0.17) * 0.5 + 0.5, 2.0));
+  float clumpBreath = sin(uTime * (0.86 + sin(aMotion.z) * 0.12) + aMotion.z)
+    * 0.5 + 0.5;
+  float frontResponse = 0.68 + 0.32 * (sin(aMotion.z * 1.91) * 0.5 + 0.5);
+  float gust = clamp(primaryFront * primaryRegion * frontResponse
+    + secondFront * 0.38, 0.0, 1.0);
+  float peakGust = pow(gust, 2.20);
+  float wind = 0.11 + gust * 0.48 + clumpBreath * 0.10 + secondFront * 0.045;
   wind += sin(uTime * 2.20 + aMotion.z) * 0.008
     + sin(uTime * 3.10 + aMotion.z * 0.63) * 0.004;
   wind = clamp(wind * uWindScale, 0.05, 1.05);
@@ -104,7 +115,7 @@ void main() {
   vWorld = world;
   vT = t;
   vShade = aMotion.y;
-  vGust = gust * 0.72 + wind * 0.28;
+  vGust = gust * 0.78 + wind * 0.22;
   gl_Position = uVP * vec4(world, 1.0);
 }`;
 
@@ -353,10 +364,11 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
   const blade = new Float32Array((segments + 1) * 4);
   for (let i=0;i<=segments;i+=1) blade.set([-1,i/segments,1,i/segments], i*4);
 
-  const weight = (clump: Clump) => clump[2] * clump[3] * clump[7]
-    * (clump[7] < .405 ? .82 : 1);
-  const totalWeight = clumps.reduce((sum, clump) => sum + weight(clump), 0);
-  const counts = clumps.map((clump) => Math.floor(requested * weight(clump) / totalWeight));
+  const weight = (clump: Clump, clumpIndex: number) => clump[2] * clump[3] * clump[7]
+    * (clump[7] < .405 ? .82 : 1)
+    * (.68 + seeded(clumpIndex, 31) * .72);
+  const totalWeight = clumps.reduce((sum, clump, clumpIndex) => sum + weight(clump, clumpIndex), 0);
+  const counts = clumps.map((clump, clumpIndex) => Math.floor(requested * weight(clump, clumpIndex) / totalWeight));
   let count = counts.reduce((sum, value) => sum + value, 0);
   for (let i=0;count<requested;i=(i+1)%counts.length) { counts[i] += 1; count += 1; }
   const instances = new Float32Array(count * 11);
@@ -370,12 +382,19 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
     const foreground = Math.max(0, Math.min(1, (centerZ + 2) / 10));
     const rotationCos = Math.cos(rotation);
     const rotationSin = Math.sin(rotation);
-    const localFlow = flow + (seeded(clumpIndex, 22) - .5) * 2.35;
+    const localFlow = flow + (seeded(clumpIndex, 22) - .5) * 3.10;
     const flowX = Math.cos(localFlow);
     const flowZ = Math.sin(localFlow);
     const meanRadius = Math.sqrt(radiusX * radiusZ);
-    const clumpLength = .70 + seeded(clumpIndex, 15) * .62;
-    const clumpCollapseBias = (seeded(clumpIndex, 16) - .5) * .52;
+    const posture = seeded(clumpIndex, 32);
+    const upright = posture < .29 ? 1 : 0;
+    const flattened = posture > .76 ? 1 : 0;
+    const postureLength = upright > .5 ? 1.22 : flattened > .5 ? .66 : .94;
+    const postureLift = upright > .5 ? 1.24 : flattened > .5 ? .54 : .90;
+    const footprintScale = upright > .5 ? .88 : flattened > .5 ? 1.18 : 1.0;
+    const clumpLength = postureLength * (.82 + seeded(clumpIndex, 15) * .38);
+    const clumpCollapseBias = (seeded(clumpIndex, 16) - .5) * .42
+      - upright * .16 + flattened * .30;
     const organicCenterX = centerX + (seeded(clumpIndex, 17) - .5) * .42;
     const organicCenterZ = centerZ + (seeded(clumpIndex, 18) - .5) * .54;
     for (let bladeIndex=0;bladeIndex<counts[clumpIndex];bladeIndex+=1) {
@@ -388,8 +407,10 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       const brokenEdge = 1
         + Math.sin(angle * 3 + clumpPhase) * .18
         + Math.sin(angle * 5 - clumpPhase * .63) * .11;
-      const localX = Math.cos(angle) * rootRatio * radiusX * brokenEdge * .96;
-      const localZ = Math.sin(angle) * rootRatio * radiusZ * brokenEdge * .96;
+      const localX = Math.cos(angle) * rootRatio * radiusX * brokenEdge * .96
+        * footprintScale;
+      const localZ = Math.sin(angle) * rootRatio * radiusZ * brokenEdge * .96
+        * (flattened > .5 ? 1.08 : upright > .5 ? .92 : 1);
       const lobeRoll = seeded(index, 14);
       const lobeSide = lobeRoll < .28 ? -1 : lobeRoll > .72 ? 1 : 0;
       const lobeDepth = lobeRoll < .16 ? -.7 : lobeRoll > .84 ? .55 : 0;
@@ -439,7 +460,7 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
         height *= .76;
       }
       const roundedShoulder = Math.pow(Math.max(0,1 - rootRatio),1.12);
-      const moundLift = roundedShoulder * meanRadius * .36
+      const moundLift = roundedShoulder * meanRadius * .36 * postureLift
         * (1 - flattenedMat * .84);
       const rootLift = .018 + moundLift
         + (1 - rootRatio) * .045 * (1 - collapse * .54)
