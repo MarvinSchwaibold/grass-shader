@@ -1,33 +1,10 @@
 "use client";
 
-import { animate } from "motion";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { motion, useMotionValue, useTransform } from "motion/react";
 
 const WIND_MIN = .35;
 const WIND_MAX = 3.6;
 const DEFAULT_WIND_STRENGTH = 50;
-const FLUID_INTERFACE_SPRING = {
-  stiffness: 650,
-  damping: 46,
-  mass: .7,
-};
-
-function useFluidReveal(target: number) {
-  const progress = useMotionValue(target);
-  const animation = useRef<ReturnType<typeof animate> | null>(null);
-
-  useEffect(() => {
-    animation.current = animate(progress,target,{
-      type: "spring",
-      ...FLUID_INTERFACE_SPRING,
-    });
-  },[progress,target]);
-
-  useEffect(() => () => animation.current?.stop(),[]);
-  return progress;
-}
-
 function windAmountFromStrength(strength: number) {
   const normalized = Math.max(0,Math.min(100,strength)) / 100;
   return WIND_MIN + normalized * (WIND_MAX - WIND_MIN);
@@ -965,12 +942,9 @@ export function OrnamentalGrass() {
   });
   const activeStudy: StudyId = "study-7400";
   const [activeReferenceId, setActiveReferenceId] = useState("recording");
-  const [isReferenceTrayHovering, setIsReferenceTrayHovering] = useState(false);
   const [windStrength, setWindStrength] = useState(DEFAULT_WIND_STRENGTH);
   const [elasticPull, setElasticPull] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const referenceReveal = useFluidReveal(isReferenceTrayHovering ? 1 : 0);
-  const referenceTrayGap = useTransform(referenceReveal,[0,1],["3px","7px"]);
   useEffect(() => {
     if (!ref.current) return;
     try { return start(ref.current,windAmount,activeStudy); }
@@ -1113,25 +1087,16 @@ export function OrnamentalGrass() {
               Active real-world reference footage for the generated grass study.
             </figcaption>
           </figure>
-          <motion.aside
+          <aside
             className="reference-media-tray"
             aria-label="Reference media"
-            style={{ rowGap: referenceTrayGap }}
-            onPointerEnter={() => setIsReferenceTrayHovering(true)}
-            onPointerLeave={() => setIsReferenceTrayHovering(false)}
-            onFocusCapture={() => setIsReferenceTrayHovering(true)}
-            onBlurCapture={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) {
-                setIsReferenceTrayHovering(false);
-              }
-            }}
           >
             {referenceChoices.map((media) => {
               const selected = activeReference.id === media.id;
               return (
               <button
                 key={media.id}
-                className={`reference-map-button${selected ? " is-selected" : ""}`}
+                className="reference-map-button"
                 type="button"
                 aria-label={`Show ${media.caption}`}
                 aria-pressed={selected}
@@ -1159,7 +1124,7 @@ export function OrnamentalGrass() {
               </button>
               );
             })}
-          </motion.aside>
+          </aside>
         </div>
         <p className="reference-caption" aria-live="polite">{activeReference.caption}</p>
       </section>

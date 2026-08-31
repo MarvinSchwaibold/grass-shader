@@ -54,19 +54,11 @@ body {
   left: 12.5%;
   width: 75%;
   padding: 3px;
-  border: 1px solid rgb(24 31 21 / 9%);
+  border: 0;
   border-radius: 14px;
   background: #ffffff;
   box-shadow: 0 10px 28px rgb(18 25 17 / 11%);
   transform: translateY(-50%);
-}
-
-.wind-drawer:focus-within,
-.reference-media-tray:focus-within {
-  box-shadow:
-    0 0 0 2px #ffffff,
-    0 0 0 4px rgb(30 32 29 / 68%),
-    0 10px 28px rgb(18 25 17 / 11%);
 }
 
 .reference-experience {
@@ -92,8 +84,8 @@ body {
   display: grid;
   width: clamp(32px, 2.35vw, 38px);
   padding: 5px;
-  gap: 3px;
-  border: 1px solid rgb(24 31 21 / 9%);
+  gap: 7px;
+  border: 0;
   border-radius: 10px;
   background: #ffffff;
   box-shadow: 0 10px 28px rgb(18 25 17 / 11%);
@@ -109,25 +101,13 @@ body {
   border-radius: 5px;
   outline: 0;
   background: #192818;
-  box-shadow: 0 0 0 1px rgb(15 20 13 / 10%);
+  box-shadow: none;
   cursor: pointer;
-  transition: opacity 140ms ease, transform 160ms cubic-bezier(.2,.75,.25,1), box-shadow 160ms ease;
-}
-
-.reference-map-button:hover {
-  transform: scale(1.025);
-  box-shadow: 0 6px 18px rgb(15 20 13 / 14%);
-}
-
-.reference-map-button:active { transform: scale(.96); }
-
-.reference-map-button.is-selected {
-  outline: 2px solid #20211f;
-  outline-offset: 2px;
+  transition: opacity 140ms ease;
 }
 
 .reference-map-button:focus-visible {
-  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #20211f;
+  outline: 0;
 }
 
 .reference-map {
@@ -337,7 +317,7 @@ body {
     right: 0;
     width: 24px;
     padding: 4px;
-    gap: 3px;
+    gap: 7px;
     border-radius: 8px;
   }
   .reference-map {
