@@ -13,25 +13,53 @@ function windAmountFromStrength(strength: number) {
 
 type StudyId = "study-7400" | "study-7401";
 
-const STUDIES: Record<StudyId, {
-  video: string;
-  poster: string;
+type ReferenceMedia = {
+  id: string;
+  kind: "video" | "image";
+  src: string;
+  poster?: string;
   caption: string;
-  videoLabel: string;
-}> = {
-  "study-7400": {
-    video: "/IMG_7400.mp4",
+  label: string;
+};
+
+const REFERENCE_MEDIA: ReferenceMedia[] = [
+  {
+    id: "recording",
+    kind: "video",
+    src: "/IMG_7400.mp4",
     poster: "/IMG_7400-poster.jpg",
     caption: "Grass Study Recording.mp4",
-    videoLabel: "Original footage of mounded ornamental grass moving in the wind",
+    label: "Original footage of mounded ornamental grass moving in the wind",
   },
-  "study-7401": {
-    video: "/IMG_7401.mp4",
-    poster: "/IMG_7401-poster.jpg",
-    caption: "Grass Study Recording 02.mp4",
-    videoLabel: "Second footage of upright ornamental grass moving in the wind",
+  {
+    id: "pixel-map",
+    kind: "image",
+    src: "/pixel-hex-map.png",
+    caption: "Pixel Hex Map.png",
+    label: "Pixel hex color map",
   },
-};
+  {
+    id: "relief-map",
+    kind: "image",
+    src: "/color-relief-map.png",
+    caption: "Color Relief Map.png",
+    label: "Color relief map",
+  },
+  {
+    id: "gradient-map",
+    kind: "image",
+    src: "/gradient-map.png",
+    caption: "Gradient Map.png",
+    label: "Gradient color map",
+  },
+  {
+    id: "topographical-map",
+    kind: "image",
+    src: "/topographical-map.png",
+    caption: "Topographical Map.png",
+    label: "Topographical terrain map",
+  },
+];
 
 const grassVertex = `#version 300 es
 precision highp float;
@@ -911,6 +939,7 @@ export function OrnamentalGrass() {
     velocity: 0,
   });
   const activeStudy: StudyId = "study-7400";
+  const [activeReferenceId, setActiveReferenceId] = useState("recording");
   const [windStrength, setWindStrength] = useState(DEFAULT_WIND_STRENGTH);
   const [elasticPull, setElasticPull] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -919,7 +948,9 @@ export function OrnamentalGrass() {
     try { return start(ref.current,windAmount,activeStudy); }
     catch (error) { console.error("Unable to start the ornamental grass field",error); }
   },[activeStudy]);
-  const activeReference = STUDIES[activeStudy];
+  const activeReference = REFERENCE_MEDIA.find((media) => media.id === activeReferenceId)
+    ?? REFERENCE_MEDIA[0];
+  const referenceThumbnails = REFERENCE_MEDIA.filter((media) => media.id !== activeReference.id);
   const windFill = `${windStrength}%`;
   const setStrength = (strength: number) => {
     const next = Math.max(0,Math.min(100,strength));
@@ -1025,37 +1056,61 @@ export function OrnamentalGrass() {
       <section className="reference-experience" aria-label="Original grass reference video">
         <div className="reference-stage-shell">
           <figure className="grass-stage reference-stage">
-            <video
-              className="reference-video"
-              src={activeReference.video}
-              poster={activeReference.poster}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="auto"
-              aria-label={activeReference.videoLabel}
-            />
+            {activeReference.kind === "video" ? (
+              <video
+                key={activeReference.id}
+                className="reference-video"
+                src={activeReference.src}
+                poster={activeReference.poster}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                aria-label={activeReference.label}
+              />
+            ) : (
+              <img
+                key={activeReference.id}
+                className="reference-image"
+                src={activeReference.src}
+                alt={activeReference.label}
+              />
+            )}
             <figcaption className="visually-hidden">
               Active real-world reference footage for the generated grass study.
             </figcaption>
           </figure>
           <aside className="reference-map-stack" aria-label="Reference analysis maps">
-            <img
-              className="reference-map"
-              src="/pixel-hex-map.png"
-              alt="Pixel hex color map"
-            />
-            <img
-              className="reference-map"
-              src="/color-relief-map.png"
-              alt="Color relief map"
-            />
-            <img
-              className="reference-map"
-              src="/gradient-map.png"
-              alt="Gradient color map"
-            />
+            {referenceThumbnails.map((media) => (
+              <button
+                key={media.id}
+                className="reference-map-button"
+                type="button"
+                aria-label={`Show ${media.caption}`}
+                onClick={() => setActiveReferenceId(media.id)}
+              >
+                {media.kind === "video" ? (
+                  <video
+                    className="reference-map"
+                    src={media.src}
+                    poster={media.poster}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="metadata"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <img
+                    className="reference-map"
+                    src={media.src}
+                    alt=""
+                  />
+                )}
+              </button>
+            ))}
           </aside>
         </div>
         <p className="reference-caption" aria-live="polite">{activeReference.caption}</p>
