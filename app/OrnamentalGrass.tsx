@@ -953,7 +953,7 @@ export function OrnamentalGrass() {
   },[activeStudy]);
   const activeReference = REFERENCE_MEDIA.find((media) => media.id === activeReferenceId)
     ?? REFERENCE_MEDIA[0];
-  const referenceMaps = REFERENCE_MEDIA.filter((media) => media.kind === "image");
+  const referenceChoices = REFERENCE_MEDIA;
   const windFill = `${windStrength}%`;
   const setStrength = (strength: number) => {
     const next = Math.max(0,Math.min(100,strength));
@@ -1085,24 +1085,36 @@ export function OrnamentalGrass() {
             </figcaption>
           </figure>
           <aside className="reference-map-stack" aria-label="Reference analysis maps">
-            {referenceMaps.map((media) => {
+            {referenceChoices.map((media) => {
               const selected = activeReference.id === media.id;
               return (
               <button
                 key={media.id}
                 className={`reference-map-button${selected ? " is-selected" : ""}`}
                 type="button"
-                aria-label={selected
-                  ? `Return to Grass Study Recording.mp4 from ${media.caption}`
-                  : `Show ${media.caption}`}
+                aria-label={`Show ${media.caption}`}
                 aria-pressed={selected}
-                onClick={() => setActiveReferenceId(selected ? "recording" : media.id)}
+                onClick={() => setActiveReferenceId(media.id)}
               >
-                <img
-                  className="reference-map"
-                  src={media.src}
-                  alt=""
-                />
+                {media.kind === "video" ? (
+                  <video
+                    className="reference-map"
+                    src={media.src}
+                    poster={media.poster}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="metadata"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <img
+                    className="reference-map"
+                    src={media.src}
+                    alt=""
+                  />
+                )}
               </button>
               );
             })}
