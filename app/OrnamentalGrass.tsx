@@ -2,6 +2,15 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
+const WIND_MIN = .35;
+const WIND_MAX = 3.6;
+const DEFAULT_WIND_STRENGTH = 50;
+
+function windAmountFromStrength(strength: number) {
+  const normalized = Math.max(0,Math.min(100,strength)) / 100;
+  return WIND_MIN + normalized * (WIND_MAX - WIND_MIN);
+}
+
 const grassVertex = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aBlade;
@@ -714,9 +723,10 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     const delta = Math.min(Math.max((now - previousFrame) / 1000,0),.05);
     previousFrame = now;
     const amount = windAmount.current;
-    const speed = amount <= 1
-      ? .45 + ((amount - .35) / .65) * .55
-      : 1 + Math.pow((amount - 1) / 2.6,.85) * 4.2;
+    const normalizedWind = Math.max(0,Math.min(1,
+      (amount - WIND_MIN) / (WIND_MAX - WIND_MIN)
+    ));
+    const speed = .45 + normalizedWind * 4.75;
     windClock += delta * speed;
     const box = canvas.getBoundingClientRect();
     const ratio = Math.min(devicePixelRatio || 1,2.25);
@@ -772,7 +782,7 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
 
 export function OrnamentalGrass() {
   const ref = useRef<HTMLCanvasElement>(null);
-  const windAmount = useRef(1);
+  const windAmount = useRef(windAmountFromStrength(DEFAULT_WIND_STRENGTH));
   const drag = useRef({
     active: false,
     left: 0,
@@ -781,7 +791,7 @@ export function OrnamentalGrass() {
     lastTime: 0,
     velocity: 0,
   });
-  const [windStrength, setWindStrength] = useState(50);
+  const [windStrength, setWindStrength] = useState(DEFAULT_WIND_STRENGTH);
   const [elasticPull, setElasticPull] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   useEffect(() => {
@@ -792,10 +802,7 @@ export function OrnamentalGrass() {
   const windFill = `${windStrength}%`;
   const setStrength = (strength: number) => {
     const next = Math.max(0,Math.min(100,strength));
-    const normalized = next / 100;
-    windAmount.current = normalized <= .5
-      ? .35 + (normalized / .5) * .65
-      : 1 + Math.pow((normalized - .5) / .5,1.60) * 2.6;
+    windAmount.current = windAmountFromStrength(next);
     setWindStrength(next);
   };
   return (
