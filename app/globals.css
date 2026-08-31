@@ -30,6 +30,8 @@ body {
   grid-template-columns: repeat(2, auto);
   align-items: start;
   gap: 16px;
+  transform: scale(.8);
+  transform-origin: center;
 }
 
 .grass-experience {
