@@ -109,7 +109,7 @@ body {
   aspect-ratio: 832 / 1492;
   overflow: hidden;
   border-radius: 12px;
-  background: #192818;
+  background: #001e08;
   isolation: isolate;
 }
 
@@ -248,7 +248,7 @@ body {
   z-index: -1;
   background:
     linear-gradient(147deg, rgb(198 208 152 / 20%), transparent 42%),
-    repeating-linear-gradient(78deg, #192818 0, #192818 2px, #384a3a 3px, #2e3e26 5px);
+    repeating-linear-gradient(78deg, #001e08 0, #001e08 2px, #384a3a 3px, #2e3e26 5px);
 }
 
 .visually-hidden {

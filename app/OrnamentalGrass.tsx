@@ -363,6 +363,9 @@ void main() {
   float correctedLuma = clamp(comparisonLuma + spatialValueOffset, 0.052, 0.965);
   color *= correctedLuma / max(comparisonLuma, 0.032);
   color = min(color, silver);
+  // Absolute simulator shadow floor requested by the study: no rendered grass
+  // fragment may become darker than #001E08.
+  color = max(color, vec3(0.0, 0.117647, 0.031373));
   outColor = vec4(color, 1.0);
 }`;
 
@@ -884,7 +887,7 @@ function start(
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.disable(gl.CULL_FACE);
-    gl.clearColor(.035,.052,.030,1);
+    gl.clearColor(0.0,0.117647,0.031373,1);
     gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D,terrain.texture);
