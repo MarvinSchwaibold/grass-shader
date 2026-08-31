@@ -63,6 +63,7 @@ body {
   margin: 0;
   aspect-ratio: 832 / 1492;
   overflow: hidden;
+  border-radius: 12px;
   background: #192818;
   isolation: isolate;
 }
