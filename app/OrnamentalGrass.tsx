@@ -68,10 +68,11 @@ void main() {
   float gust = clamp(primaryFront * primaryRegion * frontResponse
     + secondFront * 0.38, 0.0, 1.0);
   float peakGust = pow(gust, 2.20);
+  float extremeWind = smoothstep(1.0, 3.6, uWindScale);
   float wind = 0.11 + gust * 0.48 + clumpBreath * 0.10 + secondFront * 0.045;
   wind += sin(uTime * 2.20 + aMotion.z) * 0.008
     + sin(uTime * 3.10 + aMotion.z * 0.63) * 0.004;
-  wind = clamp(wind * uWindScale, 0.05, 1.05);
+  wind = clamp(wind * uWindScale, 0.05, 2.10);
 
   float curve = t * t;
   float arch = pow(t, 1.38);
@@ -93,7 +94,10 @@ void main() {
   float ripple = sin(aMotion.x + uTime * 1.74 + t * 2.7) * 0.006 * height;
 
   float naturalReach = height * (0.050 * t + lean * 0.62 * arch);
-  float gustReach = height * wind * (0.12 + gust * 0.10 + peakGust * 0.18) * curve;
+  float gustReach = height * wind * (
+    0.12 + gust * 0.10 + peakGust * 0.18
+    + extremeWind * (0.18 + gust * 0.28 + peakGust * 0.42)
+  ) * curve;
   vec3 world = aRoot;
   world.y += terrainY;
   // Both vegetation layers emerge from the hidden terrain normal before
@@ -102,17 +106,20 @@ void main() {
   world.xz += curveDirection * naturalReach;
   world.xz += windDirection * gustReach;
   world.xz += rippleDirection * ripple * tip;
-  float verticalLift = max(0.08,
+  float verticalLift = max(0.018,
     1.0 - lean * 0.58 * arch - wind * 0.16 * tip - peakGust * 0.42 * tip
+      - extremeWind * (0.28 + gust * 0.20 + peakGust * 0.38) * tip
   );
   world.y += height * t * verticalLift * terrainNormal.y;
   world.xz += bladeSide * side * width * taper;
 
   vec2 horizontalTangent = curveDirection * (lean * 1.02 + 0.08)
-    + windDirection * (wind * (0.36 + gust * 0.14) + peakGust * 0.42);
+    + windDirection * (wind * (0.36 + gust * 0.14) + peakGust * 0.42
+      + extremeWind * (0.34 + gust * 0.38 + peakGust * 0.62));
   vec3 tangent = normalize(vec3(
     horizontalTangent.x * arch + terrainNormal.x * (1.0 - arch) * 0.34,
-    max(0.08, 1.0 - lean * 0.70 * arch - wind * 0.28 * tip - peakGust * 0.48 * tip)
+    max(0.018, 1.0 - lean * 0.70 * arch - wind * 0.28 * tip - peakGust * 0.48 * tip
+      - extremeWind * (0.34 + peakGust * 0.44) * tip)
       * terrainNormal.y,
     horizontalTangent.y * arch + terrainNormal.z * (1.0 - arch) * 0.34
   ));
@@ -590,7 +597,7 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     const amount = windAmount.current;
     const speed = amount <= 1
       ? .45 + ((amount - .35) / .65) * .55
-      : 1 + ((amount - 1) / .65) * 1.35;
+      : 1 + Math.pow((amount - 1) / 2.6,.85) * 4.2;
     windClock += delta * speed;
     const box = canvas.getBoundingClientRect();
     const ratio = Math.min(devicePixelRatio || 1,2.25);
@@ -655,7 +662,10 @@ export function OrnamentalGrass() {
   const windFill = `${windStrength}%`;
   const setStrength = (strength: number) => {
     const next = Math.max(0,Math.min(100,strength));
-    windAmount.current = .35 + (next / 100) * 1.3;
+    const normalized = next / 100;
+    windAmount.current = normalized <= .5
+      ? .35 + (normalized / .5) * .65
+      : 1 + Math.pow((normalized - .5) / .5,1.60) * 2.6;
     setWindStrength(next);
   };
   return (
