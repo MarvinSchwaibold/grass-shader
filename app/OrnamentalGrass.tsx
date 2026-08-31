@@ -638,6 +638,7 @@ export function OrnamentalGrass() {
             Original reference footage of dense ornamental grass moving outdoors.
           </figcaption>
         </figure>
+        <p className="reference-caption">Grass Study Recording.mp4</p>
       </section>
     </div>
   );
