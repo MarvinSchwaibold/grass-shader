@@ -57,7 +57,7 @@ body {
   font: 500 12px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   letter-spacing: -.02em;
   transform: translateX(var(--wind-pull)) scaleX(var(--wind-stretch));
-  transition: transform 420ms cubic-bezier(.18, 1.55, .34, 1);
+  transition: transform 620ms cubic-bezier(.14, 1.85, .26, 1);
   user-select: none;
 }
 

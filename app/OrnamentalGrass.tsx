@@ -537,8 +537,8 @@ export function OrnamentalGrass() {
         className={`wind-control${isDragging ? " is-dragging" : ""}`}
         style={{
           "--wind-fill": windFill,
-          "--wind-pull": `${elasticPull * .44}px`,
-          "--wind-stretch": 1 + Math.abs(elasticPull) * .0015,
+          "--wind-pull": `${elasticPull * .58}px`,
+          "--wind-stretch": 1 + Math.abs(elasticPull) * .0024,
           transformOrigin: elasticPull < 0 ? "right center" : "left center",
         } as CSSProperties}
       >
@@ -588,8 +588,8 @@ export function OrnamentalGrass() {
             const excess = raw < 0 ? raw * box.width
               : raw > 1 ? (raw - 1) * box.width : 0;
             const directedVelocity = (raw <= 0 && velocity < 0)
-              || (raw >= 1 && velocity > 0) ? velocity * 3.2 : 0;
-            const pull = Math.max(-12,Math.min(12,excess * .18 + directedVelocity));
+              || (raw >= 1 && velocity > 0) ? velocity * 4.6 : 0;
+            const pull = Math.max(-18,Math.min(18,excess * .24 + directedVelocity));
             drag.current.lastX = event.clientX;
             drag.current.lastTime = now;
             drag.current.velocity = velocity;
