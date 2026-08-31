@@ -148,7 +148,7 @@ void main() {
   float ripple = sin(aMotion.x + uTime * 1.74 + t * 2.7) * 0.006 * height
     + bladeFlutter * extremeWind * height * (0.020 + gust * 0.028);
 
-  float naturalReach = height * (0.050 * t + lean * mix(0.62, 0.39, secondStudy) * arch);
+  float naturalReach = height * (0.050 * t + lean * mix(0.62, 0.72, secondStudy) * arch);
   float gustReach = height * wind * (
     0.12 + gust * 0.10 + peakGust * 0.18
     + extremeWind * (0.09 + gust * 0.16 + peakGust * 0.22)
@@ -162,7 +162,7 @@ void main() {
   world.xz += chaoticWindDirection * gustReach;
   world.xz += rippleDirection * ripple * tip;
   float verticalLift = max(0.018,
-    1.0 - lean * mix(0.58, 0.38, secondStudy) * arch
+    1.0 - lean * mix(0.58, 0.76, secondStudy) * arch
       - wind * mix(0.16, 0.11, secondStudy) * tip
       - peakGust * mix(0.42, 0.30, secondStudy) * tip
       - extremeWind * (0.28 + gust * 0.20 + peakGust * 0.38) * tip
@@ -346,18 +346,19 @@ const featuredClumps: Clump[] = [
   [-3.92,-15.06,1.86,.42,.38,.62,.97,.34,.42,.62],[1.58,-12.04,2.42,.50,-.33,.25,.99,.36,.58,.58],[-.62,-8.68,3.04,.62,.18,.82,.98,.38,.46,.62],[3.08,-5.76,2.74,.68,-.25,.42,.99,.36,.66,.58],[-3.18,-3.02,3.12,.78,.30,.95,.98,.38,.52,.60],[.42,.38,3.82,.92,-.18,.35,.99,.38,.62,.56],[-1.68,3.72,4.58,1.05,.22,.78,.99,.39,.50,.54],[1.04,7.08,5.96,1.34,-.12,.28,.99,.39,.59,.52],
 ];
 
-// The second reference is a different growth pattern: fewer, fuller cushions
-// whose blades stay upright through the center and spill only at their edges.
-const uprightFeaturedClumps: Clump[] = [
-  [-5.45,-18.55,1.44,.94,-.18,.24,.38,.88,.56,.82],[-2.15,-18.18,1.68,1.05,.20,.62,.31,.94,.68,.88],[1.44,-18.62,1.78,1.12,-.14,.38,.28,.98,.62,.92],[4.92,-18.14,1.48,.98,.22,.82,.42,.89,.70,.84],
-  [-4.58,-15.48,1.74,1.22,.18,.78,.36,.96,.58,.90],[-.72,-15.82,1.94,1.34,-.20,.30,.26,.99,.72,.96],[3.62,-15.34,1.82,1.28,.16,.58,.34,.96,.64,.90],
-  [-5.42,-12.34,1.68,1.30,-.22,.42,.40,.92,.54,.84],[-2.12,-11.86,1.88,1.42,.18,.92,.33,.98,.70,.94],[1.42,-12.42,2.16,1.48,-.16,.28,.22,1.00,.66,1.00],[5.04,-11.92,1.72,1.30,.24,.70,.37,.94,.58,.88],
-  [-4.55,-8.78,1.92,1.46,.20,.34,.29,.97,.62,.92],[-.66,-9.16,2.18,1.62,-.18,.82,.24,1.00,.74,1.02],[3.76,-8.54,2.06,1.54,.16,.46,.31,.98,.60,.94],
-  [-5.08,-5.28,2.10,1.58,-.21,.72,.35,.96,.56,.90],[-1.28,-5.84,2.30,1.76,.20,.26,.21,1.00,.71,1.04],[2.74,-5.18,2.16,1.66,-.14,.88,.28,.99,.66,.98],[5.72,-5.66,1.40,1.48,.16,.44,.38,.90,.59,.86],
-  [-4.28,-1.72,2.34,1.80,.18,.32,.25,.99,.64,.98],[.18,-2.24,2.56,1.92,-.16,.76,.20,1.00,.72,1.06],[4.50,-1.54,2.26,1.78,.20,.48,.30,.97,.58,.94],
-  [-5.18,2.08,2.20,1.86,-.18,.82,.34,.96,.60,.92],[-1.14,1.52,2.64,2.02,.17,.36,.22,1.00,.70,1.04],[3.28,2.30,2.48,1.92,-.15,.68,.27,.99,.66,.98],[5.94,1.58,1.46,1.70,.14,.26,.40,.88,.56,.86],
-  [-4.18,5.72,2.70,2.02,.18,.44,.24,.99,.62,1.00],[.82,5.26,2.88,2.18,-.16,.86,.19,1.00,.74,1.08],[5.06,5.92,2.50,2.00,.18,.32,.31,.96,.58,.94],
-  [-5.30,8.52,2.52,2.16,-.18,.74,.28,.97,.64,.98],[-.36,8.20,3.06,2.34,.14,.28,.21,1.00,.72,1.06],[4.72,8.60,2.68,2.18,-.16,.62,.26,.98,.60,.96],
+// Video 02 is built from overlapping elongated cushions. Their footprints
+// deliberately bridge each row so the long-grass layer never reads as a set
+// of isolated bushes sitting above a floor.
+const videoTwoCushions: Clump[] = [
+  [-4.82,-18.62,3.20,.82,.18,.18,.82,.95,.56,.96],[-.18,-18.34,3.46,.92,-.12,.72,.76,.99,.68,1.02],[4.78,-18.56,3.02,.78,.22,.36,.88,.94,.62,.94],
+  [-5.24,-15.52,3.05,.94,-.24,.86,.90,.96,.58,1.00],[-.54,-15.84,3.92,1.02,.16,.30,.78,1.00,.71,1.08],[4.68,-15.36,3.22,.88,-.18,.62,.84,.97,.64,.98],
+  [-4.16,-12.18,3.62,1.08,.28,.42,.76,.98,.54,1.04],[1.52,-12.48,4.08,1.16,-.22,.96,.88,1.00,.70,1.10],[5.74,-11.88,2.42,.82,.18,.26,.92,.92,.60,.94],
+  [-5.16,-8.72,3.04,1.02,-.28,.74,.86,.96,.62,1.00],[-.44,-9.14,4.20,1.22,.20,.34,.80,1.00,.72,1.12],[4.78,-8.48,3.28,1.04,-.16,.88,.94,.98,.58,1.02],
+  [-3.92,-5.42,3.82,1.26,.24,.28,.78,1.00,.56,1.08],[2.34,-5.78,4.18,1.18,-.26,.82,.90,1.00,.70,1.14],[6.08,-5.14,2.20,.82,.14,.48,.84,.90,.62,.96],
+  [-5.22,-1.86,3.18,1.12,-.18,.94,.88,.97,.60,1.04],[-.22,-2.22,4.34,1.34,.22,.38,.80,1.00,.73,1.14],[5.02,-1.54,3.34,1.08,-.22,.68,.92,.98,.66,1.06],
+  [-3.86,1.82,4.12,1.38,.26,.30,.82,1.00,.64,1.12],[2.62,2.16,4.26,1.32,-.24,.88,.90,1.00,.70,1.16],[6.16,1.54,2.24,.90,.16,.46,.86,.92,.58,.98],
+  [-5.06,5.58,3.44,1.24,-.20,.78,.92,.98,.62,1.08],[-.12,5.20,4.52,1.48,.20,.34,.84,1.00,.74,1.18],[5.08,5.82,3.52,1.26,-.18,.94,.90,.99,.60,1.08],
+  [-3.42,8.52,4.72,1.54,.18,.40,.86,1.00,.68,1.16],[3.66,8.26,4.56,1.48,-.20,.82,.94,1.00,.72,1.18],
 ];
 
 // Only the raised, long-grass cushions belong to the mound layer. The narrow
@@ -456,7 +457,7 @@ function moundGrassGeometry(
   for (let i=0;i<=segments;i+=1) blade.set([-1,i/segments,1,i/segments], i*4);
 
   const secondStudy = study === "study-7401";
-  const activeClumps = secondStudy ? uprightFeaturedClumps : moundClumps;
+  const activeClumps = secondStudy ? videoTwoCushions : moundClumps;
   const weight = (clump: Clump, clumpIndex: number) => clump[2] * clump[3] * clump[7]
     * (clump[7] < .405 ? .82 : 1)
     * (.68 + seeded(clumpIndex, 31) * .72);
@@ -475,17 +476,17 @@ function moundGrassGeometry(
     const foreground = Math.max(0, Math.min(1, (centerZ + 2) / 10));
     const rotationCos = Math.cos(rotation);
     const rotationSin = Math.sin(rotation);
-    const localFlow = flow + (seeded(clumpIndex, 22) - .5) * (secondStudy ? 1.24 : 3.10);
+    const localFlow = flow + (seeded(clumpIndex, 22) - .5) * (secondStudy ? 2.18 : 3.10);
     const flowX = Math.cos(localFlow);
     const flowZ = Math.sin(localFlow);
     const meanRadius = Math.sqrt(radiusX * radiusZ);
     const isContinuity = density < .405 ? 1 : 0;
     const posture = seeded(clumpIndex, 32);
-    const upright = isContinuity > .5 ? 0 : posture < (secondStudy ? .62 : .29) ? 1 : 0;
-    const flattened = isContinuity > .5 ? 0 : posture > (secondStudy ? .92 : .76) ? 1 : 0;
-    const postureLength = upright > .5 ? (secondStudy ? 1.10 : 1.22) : flattened > .5 ? .66 : .94;
-    const postureLift = upright > .5 ? (secondStudy ? 1.38 : 1.24) : flattened > .5 ? .54 : .90;
-    const footprintScale = upright > .5 ? (secondStudy ? .80 : .88) : flattened > .5 ? 1.18 : 1.0;
+    const upright = isContinuity > .5 ? 0 : posture < (secondStudy ? .06 : .29) ? 1 : 0;
+    const flattened = isContinuity > .5 ? 0 : posture > (secondStudy ? .30 : .76) ? 1 : 0;
+    const postureLength = upright > .5 ? 1.22 : flattened > .5 ? (secondStudy ? .80 : .66) : .94;
+    const postureLift = upright > .5 ? 1.24 : flattened > .5 ? (secondStudy ? .44 : .54) : .90;
+    const footprintScale = upright > .5 ? .88 : flattened > .5 ? (secondStudy ? 1.26 : 1.18) : 1.0;
     const clumpLength = postureLength * (.82 + seeded(clumpIndex, 15) * .38);
     const clumpCollapseBias = (seeded(clumpIndex, 16) - .5) * .42
       - upright * .16 + flattened * .30;
@@ -516,8 +517,8 @@ function moundGrassGeometry(
       const outwardX = rootX / outwardLength;
       const outwardZ = rootZ / outwardLength;
       const flattenedMat = isContinuity;
-      const broadFlow = flattenedMat > .5 ? .40 : (secondStudy ? .38 : .92);
-      const fineFlow = flattenedMat > .5 ? .18 : (secondStudy ? .19 : .36);
+      const broadFlow = flattenedMat > .5 ? .40 : (secondStudy ? .50 : .92);
+      const fineFlow = flattenedMat > .5 ? .18 : (secondStudy ? .24 : .36);
       const patchAngle = localFlow
         + Math.sin(angle * 2 + clumpPhase) * broadFlow
         + Math.sin(angle * 5 - clumpPhase * .72) * fineFlow;
@@ -527,7 +528,7 @@ function moundGrassGeometry(
       const directionZ = patchZ * .84 + outwardZ * .16;
       const tangled = seeded(index, 19) < (.27 + flattenedMat * .12) ? 1 : 0;
       const direction = Math.atan2(directionZ,directionX)
-        + (seeded(index, 5) - .5) * (flattenedMat > .5 ? .38 : (secondStudy ? .34 : .64))
+        + (seeded(index, 5) - .5) * (flattenedMat > .5 ? .38 : (secondStudy ? .48 : .64))
         + tangled * (seeded(index, 20) - .5) * 1.82;
       const strandNoise = .82 + Math.pow(seeded(index, 3), .82) * .42;
       const irregularProfile = Math.max(.72,Math.min(1.12,
@@ -543,7 +544,7 @@ function moundGrassGeometry(
         + Math.max(-.13,Math.min(.13,(rootX * flowX + rootZ * flowZ) / meanRadius * .12));
       const structuralLength = meanRadius <= 1.45
         ? meanRadius : 1.45 + (meanRadius - 1.45) * .28;
-      let height = structuralLength * (secondStudy ? .79 : .98) * strandNoise * edgeLength
+      let height = structuralLength * (secondStudy ? .90 : .98) * strandNoise * edgeLength
         * irregularProfile * strayLength * lengthScale * clumpLength
         * (1 - foreground * .10) * (1 - flattenedMat * .24)
         * (1 - contactPatch * .23) * (1 - baseBlade * .19)
@@ -554,7 +555,7 @@ function moundGrassGeometry(
         height *= .76;
       }
       const roundedShoulder = Math.pow(Math.max(0,1 - rootRatio),1.12);
-      const moundLift = roundedShoulder * meanRadius * (secondStudy ? .31 : .36) * postureLift
+      const moundLift = roundedShoulder * meanRadius * (secondStudy ? .22 : .36) * postureLift
         * (1 - flattenedMat * .84);
       const rootLift = .018 + moundLift
         + (1 - rootRatio) * .045 * (1 - collapse * .54)
@@ -648,7 +649,7 @@ function baseGrassGeometry(
       const direction = fieldDirection + (seeded(instance,46) - .5) * (secondStudy ? .52 : .78)
         + tangled * (seeded(instance,47) - .5) * 1.72;
       const compressedLength = compression > .72 ? .68 : compression < .20 ? 1.08 : .88;
-      const height = (secondStudy ? .34 + seeded(instance,48) * .36 : .42 + seeded(instance,48) * .48)
+      const height = (secondStudy ? .48 + seeded(instance,48) * .42 : .42 + seeded(instance,48) * .48)
         * compressedLength;
       const shade = Math.max(.04,Math.min(.94,
         .09 + seeded(instance,49) * .54 + (compression < .18 ? .18 : 0)
@@ -658,14 +659,16 @@ function baseGrassGeometry(
       instances[offset+1] = .010 + seeded(instance,50) * .014;
       instances[offset+2] = rootZ;
       instances[offset+3] = height;
-      instances[offset+4] = .0046 + seeded(instance,51) * .0042;
+      instances[offset+4] = secondStudy
+        ? .0062 + seeded(instance,51) * .0048
+        : .0046 + seeded(instance,51) * .0042;
       instances[offset+5] = direction;
       instances[offset+6] = direction + Math.PI * .5 + (seeded(instance,52) - .5) * .48;
       instances[offset+7] = seeded(instance,53) * Math.PI * 2;
       instances[offset+8] = 1 + shade;
       instances[offset+9] = regionPhase;
-      instances[offset+10] = Math.max(.28,Math.min(.94,
-        (secondStudy ? .34 : .48) + compression * .28
+      instances[offset+10] = Math.max(.28,Math.min(.98,
+        (secondStudy ? .68 : .48) + compression * (secondStudy ? .24 : .28)
           + (seeded(instance,54) - .5) * .20 + tangled * .08
       ));
       instance += 1;
@@ -754,10 +757,14 @@ function start(
   const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
   const mobile = matchMedia("(max-width:700px)").matches;
-  const baseGrass = baseGrassGeometry(gl,mobile ? 112000 : 188000,study);
+  const baseGrass = baseGrassGeometry(
+    gl,
+    mobile ? (secondStudy ? 138000 : 112000) : (secondStudy ? 224000 : 188000),
+    study,
+  );
   const moundGrass = moundGrassGeometry(
     gl,
-    mobile ? (secondStudy ? 92000 : 82000) : (secondStudy ? 150000 : 136000),
+    mobile ? (secondStudy ? 94000 : 82000) : (secondStudy ? 154000 : 136000),
     study,
   );
   const terrain = createTerrainTexture(
