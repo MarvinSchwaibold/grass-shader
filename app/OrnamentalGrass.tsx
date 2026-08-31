@@ -247,7 +247,7 @@ void main() {
   color = mix(vec3(gradedLuma), color, 0.76);
   vec3 shadowGrade = vec3(0.105, 0.165, 0.125);
   vec3 oliveGrade = vec3(0.385, 0.430, 0.285);
-  vec3 silverGrade = vec3(0.690, 0.715, 0.585);
+  vec3 silverGrade = vec3(0.700, 0.735, 0.580);
   vec3 strawGrade = vec3(0.665, 0.615, 0.445);
   float shadowRegion = 1.0 - smoothstep(0.12, 0.38, gradedLuma);
   float highlightRegion = smoothstep(0.58, 0.92, gradedLuma);
@@ -257,7 +257,10 @@ void main() {
   regionalGrade = mix(regionalGrade, strawGrade, dryRegion * 0.42);
   color = mix(color, regionalGrade, 0.13);
 
-  float compressedLuma = 0.032 + gradedLuma * 0.875;
+  float freshFlash = highlightRegion * strandFlash * direct * (1.0 - dryRegion);
+  color = mix(color, vec3(0.610, 0.710, 0.315), freshFlash * 0.075);
+
+  float compressedLuma = 0.036 + gradedLuma * 0.895;
   color *= compressedLuma / max(dot(color, vec3(0.2126, 0.7152, 0.0722)), 0.028);
   color = min(color, silver);
   outColor = vec4(color, 1.0);
