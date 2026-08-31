@@ -945,6 +945,7 @@ export function OrnamentalGrass() {
   const activeStudy: StudyId = "study-7400";
   const [activeReferenceId, setActiveReferenceId] = useState("recording");
   const [isReferenceTrayOpen, setIsReferenceTrayOpen] = useState(false);
+  const [isReferenceTrayHovering, setIsReferenceTrayHovering] = useState(false);
   const [windStrength, setWindStrength] = useState(DEFAULT_WIND_STRENGTH);
   const [elasticPull, setElasticPull] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -958,10 +959,14 @@ export function OrnamentalGrass() {
     const dismissTray = (event: PointerEvent) => {
       const target = event.target;
       if (target instanceof Element && target.closest("[data-reference-tray]")) return;
+      setIsReferenceTrayHovering(false);
       setIsReferenceTrayOpen(false);
     };
     const dismissTrayWithKeyboard = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsReferenceTrayOpen(false);
+      if (event.key === "Escape") {
+        setIsReferenceTrayHovering(false);
+        setIsReferenceTrayOpen(false);
+      }
     };
     document.addEventListener("pointerdown",dismissTray);
     document.addEventListener("keydown",dismissTrayWithKeyboard);
@@ -1108,26 +1113,38 @@ export function OrnamentalGrass() {
             data-reference-tray
             aria-label="Reference media"
             initial={false}
-            animate={isReferenceTrayOpen ? {
-              x: 0,
-              y: 0,
-              scale: 1,
-              boxShadow: "0 16px 38px rgb(18 25 17 / 14%)",
-            } : {
-              x: -9,
-              y: 10,
-              scale: .965,
-              boxShadow: "0 0 0 rgb(18 25 17 / 0%)",
-            }}
+            animate={isReferenceTrayOpen
+              ? {
+                  x: 0,
+                  y: 0,
+                  scale: 1,
+                  boxShadow: "0 16px 38px rgb(18 25 17 / 14%)",
+                }
+              : isReferenceTrayHovering
+                ? {
+                    x: -2,
+                    y: 7,
+                    scale: .985,
+                    boxShadow: "0 10px 24px rgb(18 25 17 / 12%)",
+                  }
+                : {
+                    x: -6,
+                    y: 10,
+                    scale: .965,
+                    boxShadow: "0 7px 18px rgb(18 25 17 / 10%)",
+                  }}
             transition={{
               type: "spring",
               stiffness: 470,
               damping: 30,
               mass: .72,
             }}
+            onHoverStart={() => setIsReferenceTrayHovering(true)}
+            onHoverEnd={() => setIsReferenceTrayHovering(false)}
             onPointerDown={(event) => {
               event.stopPropagation();
               if (isReferenceTrayOpen && event.target === event.currentTarget) {
+                setIsReferenceTrayHovering(false);
                 setIsReferenceTrayOpen(false);
               }
             }}
@@ -1151,6 +1168,7 @@ export function OrnamentalGrass() {
                 tabIndex={isReferenceTrayOpen ? 0 : -1}
                 onClick={() => {
                   setActiveReferenceId(media.id);
+                  setIsReferenceTrayHovering(false);
                   setIsReferenceTrayOpen(false);
                 }}
               >
