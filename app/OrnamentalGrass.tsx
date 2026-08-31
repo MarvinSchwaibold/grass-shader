@@ -23,7 +23,7 @@ vec2 terrainUV(vec2 xz) {
 }
 
 float terrainShape(vec2 xz) {
-  vec3 sampleColor = textureLod(uTerrain, clamp(terrainUV(xz), 0.0, 1.0), 4.0).rgb;
+  vec3 sampleColor = textureLod(uTerrain, clamp(terrainUV(xz), 0.0, 1.0), 5.0).rgb;
   float luminance = dot(sampleColor, vec3(0.2126, 0.7152, 0.0722));
   return smoothstep(0.19, 0.76, luminance);
 }
@@ -34,11 +34,11 @@ void main() {
   float terrainLevel = terrainShape(aRoot.xz);
   float terrainX = terrainShape(aRoot.xz + vec2(0.16, 0.0));
   float terrainZ = terrainShape(aRoot.xz + vec2(0.0, 0.16));
-  float terrainY = terrainLevel * 1.34 - 0.12;
-  vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) / 0.16;
-  float slopeAmount = smoothstep(0.025, 0.40, length(terrainGradient));
+  float terrainY = (terrainLevel - 0.5) * 0.40;
+  vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) * 0.40 / 0.16;
+  float slopeAmount = smoothstep(0.018, 0.18, length(terrainGradient));
   vec2 downhill = normalize(-terrainGradient + vec2(0.0001));
-  float height = aShape.x * mix(0.80, 1.08, terrainLevel);
+  float height = aShape.x * mix(0.96, 1.025, terrainLevel);
   float width = aShape.y;
   vec2 radial = vec2(cos(aShape.z), sin(aShape.z));
   vec2 bladeSide = vec2(cos(aShape.w), sin(aShape.w));
@@ -67,7 +67,7 @@ void main() {
   float lean = aMotion.w;
   vec2 bendDirection = normalize(radial * (1.08 - wind * 0.48)
     + windDirection * (0.10 + wind * 0.70)
-    + downhill * slopeAmount * 0.46);
+    + downhill * slopeAmount * 0.11);
   float curlAngle = sin(aMotion.x * 1.37) * 0.22 * arch
     + sin(aMotion.x * 0.71) * 0.06 * tip;
   float curlCos = cos(curlAngle);
@@ -186,9 +186,9 @@ vec2 terrainUV(vec2 xz) {
   return vec2((xz.x + 10.0) / 20.0, (12.0 - xz.y) / 34.0);
 }
 float terrainHeight(vec2 xz) {
-  vec3 sampleColor = textureLod(uTerrain, clamp(terrainUV(xz), 0.0, 1.0), 4.0).rgb;
+  vec3 sampleColor = textureLod(uTerrain, clamp(terrainUV(xz), 0.0, 1.0), 5.0).rgb;
   float luminance = dot(sampleColor, vec3(0.2126, 0.7152, 0.0722));
-  return smoothstep(0.19, 0.76, luminance) * 1.34 - 0.12;
+  return (smoothstep(0.19, 0.76, luminance) - 0.5) * 0.40;
 }
 void main() {
   vWorld = aPosition;
