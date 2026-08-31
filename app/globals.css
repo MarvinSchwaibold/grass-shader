@@ -73,13 +73,13 @@ body {
   --wind-stretch: 1;
   position: relative;
   display: block;
-  width: 92%;
-  height: 40px;
+  width: 88%;
+  height: 36px;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #f1f1ef;
   color: #ffffff;
-  font: 500 12px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   letter-spacing: -.02em;
   transform: translateX(var(--wind-pull)) scaleX(var(--wind-stretch));
   transition: transform 775ms cubic-bezier(.12, 2.0625, .22, 1);
@@ -96,14 +96,14 @@ body {
   z-index: 1;
   width: var(--wind-fill);
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #050505;
 }
 
 .wind-control__filled-label {
   position: absolute;
   top: 50%;
-  left: 16px;
+  left: 14px;
   width: max-content;
   color: #ffffff;
   transform: translateY(-50%);
@@ -114,18 +114,23 @@ body {
   position: absolute;
   top: 50%;
   width: 4px;
-  height: 18px;
+  height: 16px;
   border-radius: 999px;
   transform: translateY(-50%);
 }
 
 .wind-control__filled-marker {
-  right: 8px;
+  right: 7px;
   background: #ffffff;
+  transition: background-color 160ms ease;
+}
+
+.wind-control.is-max .wind-control__filled-marker {
+  background: #343532;
 }
 
 .wind-control__empty-marker {
-  left: 8px;
+  left: 7px;
   z-index: 0;
   background: #d0d1ce;
 }
@@ -141,13 +146,13 @@ body {
 }
 
 .wind-control__label {
-  left: 16px;
+  left: 14px;
   z-index: 0;
   color: #20211f;
 }
 
 .wind-control__value {
-  right: 16px;
+  right: 14px;
   color: #777972;
   font-weight: 450;
   font-variant-numeric: tabular-nums;
@@ -214,10 +219,10 @@ body {
   .reference-experience { gap: 10px; }
   .reference-caption { height: 34px; }
   .wind-control {
-    width: 96%;
-    height: 34px;
+    width: 92%;
+    height: 30px;
   }
   .wind-control__filled-label,
-  .wind-control__label { left: 12px; }
-  .wind-control__value { right: 12px; }
+  .wind-control__label { left: 10px; }
+  .wind-control__value { right: 10px; }
 }

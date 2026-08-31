@@ -204,66 +204,17 @@ float hash(vec2 p) {
   p += dot(p, p + 45.32);
   return fract(p.x * p.y);
 }
-float sdSegment(vec2 p, vec2 a, vec2 b) {
-  vec2 pa = p - a;
-  vec2 ba = b - a;
-  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-  return length(pa - ba * h);
-}
 void main() {
   float fine = hash(floor(vWorld * 13.0));
   float broad = sin(vWorld.x * 0.52 + vWorld.y * 0.29) * 0.5 + 0.5;
-  float pathA = 1.0 - smoothstep(0.26, 0.94,
-    abs(vWorld.x + 1.10 + sin(vWorld.y * 0.42) * 0.82));
-  float pathB = 1.0 - smoothstep(0.24, 0.82,
-    abs(vWorld.x - 2.75 - sin(vWorld.y * 0.31 + 1.2) * 0.64));
-  float crossPath = 1.0 - smoothstep(0.25, 0.78,
-    abs(vWorld.y + 5.7 - sin(vWorld.x * 0.58) * 0.76));
-  float pocket = pow(max(0.0,
-    sin(vWorld.x * 1.23 + vWorld.y * 0.37)
-    * sin(vWorld.y * 0.94 - vWorld.x * 0.18)), 3.0);
-  vec3 deepest = vec3(0.0980, 0.1569, 0.0941);
-  vec3 soilGreen = vec3(0.1961, 0.2667, 0.1725);
-  vec3 lifted = vec3(0.2431, 0.3176, 0.2510);
-  vec3 color = mix(deepest, soilGreen, fine * 0.42 + broad * 0.28);
-  color = mix(color, lifted, max(0.0, broad - 0.70) * 0.26);
-  color = mix(color, deepest, min(0.48,pathA * 0.20 + pathB * 0.18 + crossPath * 0.13 + pocket * 0.22));
-
-  // Open garden pocket in the far-left corner of the reference: dry mottled
-  // soil, a pale hose, and an irregular fringe where grass spills back in.
-  vec2 patchPoint = vec2((vWorld.x + 3.75) / 2.65, (vWorld.y + 12.85) / 2.45);
-  float patchEdge = length(patchPoint)
-    + sin(vWorld.x * 2.3 + vWorld.y * 1.1) * 0.075
-    + sin(vWorld.y * 3.1 - vWorld.x * 0.7) * 0.045;
-  float soilMask = 1.0 - smoothstep(0.76, 1.07, patchEdge);
-  float soilSpeckle = hash(floor(vWorld * 7.0));
-  float soilBroad = sin(vWorld.x * 1.9 - vWorld.y * 1.2) * 0.5 + 0.5;
-  vec3 drySoil = mix(
-    vec3(0.3333, 0.3176, 0.2078),
-    vec3(0.5020, 0.4745, 0.2863),
-    soilSpeckle * 0.42 + soilBroad * 0.34
-  );
-  drySoil = mix(drySoil, vec3(0.4157, 0.4314, 0.2588), max(0.0, soilBroad - 0.58) * 0.34);
-  color = mix(color, drySoil, soilMask * 0.96);
-
-  vec2 hoseA = vec2(-5.20, -12.28);
-  vec2 hoseB = vec2(-4.55, -12.55);
-  vec2 hoseC = vec2(-3.86, -12.98);
-  vec2 hoseD = vec2(-3.42, -13.54);
-  vec2 hoseE = vec2(-3.64, -14.02);
-  vec2 hoseF = vec2(-4.35, -14.16);
-  float hoseDistance = min(
-    min(sdSegment(vWorld, hoseA, hoseB), sdSegment(vWorld, hoseB, hoseC)),
-    min(
-      min(sdSegment(vWorld, hoseC, hoseD), sdSegment(vWorld, hoseD, hoseE)),
-      sdSegment(vWorld, hoseE, hoseF)
-    )
-  );
-  float hoseShadow = 1.0 - smoothstep(0.070, 0.145, hoseDistance);
-  float hose = 1.0 - smoothstep(0.035, 0.075, hoseDistance);
-  color = mix(color, vec3(0.1294, 0.1294, 0.0941), hoseShadow * soilMask * 0.46);
-  color = mix(color, vec3(0.8510, 0.8549, 0.7725), hose * soilMask * 0.98);
-  color *= 1.12;
+  float fiberA = pow(0.5 + 0.5 * sin(vWorld.x * 31.0 + vWorld.y * 4.1), 12.0);
+  float fiberB = pow(0.5 + 0.5 * sin(vWorld.x * 8.6 - vWorld.y * 27.0), 15.0);
+  vec3 deepest = vec3(0.1216, 0.2000, 0.1255);
+  vec3 shadowGrass = vec3(0.1804, 0.2745, 0.1686);
+  vec3 lifted = vec3(0.2510, 0.3451, 0.2235);
+  vec3 color = mix(deepest, shadowGrass, fine * 0.34 + broad * 0.24);
+  color = mix(color, lifted, (fiberA * 0.13 + fiberB * 0.08) * (0.60 + broad * 0.40));
+  color *= 1.05;
   outColor = vec4(color, 1.0);
 }`;
 
@@ -274,7 +225,7 @@ type Clump = [
   number?,
 ];
 
-const clumps: Clump[] = [
+const featuredClumps: Clump[] = [
   [-5.55,-18.42,.92,.66,-.18,.45,.64,.86,.32,.86],[-3.46,-18.82,1.04,.72,.31,.72,.71,.94,.61,.92],[-1.17,-18.26,.88,.82,-.40,.55,.76,.79,.44,1.00],[.77,-18.73,1.12,.68,.24,.88,.69,.90,.74,.88],[3.02,-18.18,.91,.76,-.28,.38,.79,.82,.40,.95],[5.29,-18.61,1.04,.70,.42,.70,.65,.88,.58,.90],
   [-4.78,-16.06,1.16,.82,.18,.40,.68,.92,.56,.95],[-2.48,-15.72,.98,.96,-.38,.86,.72,.84,.35,1.02],[-.24,-16.31,1.25,.84,.26,.60,.80,.93,.70,.90],[2.18,-15.62,1.06,.92,-.16,.95,.66,.88,.47,1.00],[4.57,-16.16,1.18,.84,.34,.50,.75,.95,.65,.94],
   [-5.37,-13.62,1.12,.91,-.28,.76,.74,.81,.42,1.04],[-3.23,-14.08,1.27,.86,.36,.32,.67,.95,.68,.91],[-.82,-13.42,1.10,1.02,-.18,.98,.83,.89,.36,.98],[1.42,-13.93,1.31,.88,.30,.62,.70,.96,.59,1.05],[3.74,-13.36,1.08,1.00,-.42,.84,.78,.86,.76,.92],[5.62,-14.02,.98,.86,.22,.48,.64,.79,.48,1.02],
@@ -288,11 +239,31 @@ const clumps: Clump[] = [
 
   [-1.95,-12.52,2.12,.30,-.22,.22,.98,.22,.49,.67],[3.45,-9.78,2.42,.34,.18,.91,.99,.26,.62,.71],[-3.18,-7.14,2.28,.36,-.31,.40,.97,.24,.44,.72],[1.86,-4.39,2.62,.38,.27,.78,.99,.28,.68,.66],[-2.44,-.94,2.75,.42,-.24,.28,.98,.30,.52,.70],[2.04,2.37,3.02,.45,.20,.88,.99,.33,.72,.64],[-1.06,6.02,3.32,.52,-.18,.38,.99,.34,.57,.68],
   [-3.92,-15.06,1.86,.42,.38,.62,.97,.34,.42,.62],[1.58,-12.04,2.42,.50,-.33,.25,.99,.36,.58,.58],[-.62,-8.68,3.04,.62,.18,.82,.98,.38,.46,.62],[3.08,-5.76,2.74,.68,-.25,.42,.99,.36,.66,.58],[-3.18,-3.02,3.12,.78,.30,.95,.98,.38,.52,.60],[.42,.38,3.82,.92,-.18,.35,.99,.38,.62,.56],[-1.68,3.72,4.58,1.05,.22,.78,.99,.39,.50,.54],[1.04,7.08,5.96,1.34,-.12,.28,.99,.39,.59,.52],
-
-  // Low chartreuse planting clusters bordering the exposed garden pocket.
-  [-4.08,-12.62,.98,.62,-.18,.32,.18,.96,.82,.82,1],
-  [-2.55,-14.42,.96,.58,.12,.70,.22,.97,.88,.80,1],
 ];
+
+// A low, overlapping layer of the same fine grass keeps every trough
+// vegetated. The featured mounds rise through it, so dark areas remain blades
+// in occlusion instead of exposed ground.
+const continuityClumps: Clump[] = Array.from({ length: 78 }, (_, index) => {
+  const columns = 6;
+  const row = Math.floor(index / columns);
+  const column = index % columns;
+  const stagger = row % 2 ? .50 : 0;
+  return [
+    -5.68 + column * 2.26 + stagger + (seeded(index + 300, 1) - .5) * .48,
+    -19.30 + row * 2.22 + (seeded(index + 300, 2) - .5) * .44,
+    1.42 + seeded(index + 300, 3) * .28,
+    1.22 + seeded(index + 300, 4) * .26,
+    (seeded(index + 300, 5) - .5) * .92,
+    seeded(index + 300, 6) * Math.PI * 2,
+    .54 + seeded(index + 300, 7) * .32,
+    .31 + seeded(index + 300, 8) * .075,
+    .12 + seeded(index + 300, 9) * .52,
+    .70 + seeded(index + 300, 10) * .15,
+  ];
+});
+
+const clumps: Clump[] = [...featuredClumps, ...continuityClumps];
 
 function shader(gl: WebGL2RenderingContext, type: number, source: string) {
   const value = gl.createShader(type);
@@ -460,14 +431,7 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
         * (1 - tangled * .06);
       const worldRootX = organicCenterX + rootX;
       const worldRootZ = organicCenterZ + rootZ;
-      if (species < .5) {
-        const gardenDistance = Math.hypot(
-          (worldRootX + 3.75) / 2.65,
-          (worldRootZ + 12.85) / 2.45,
-        );
-        const gardenClear = Math.max(0,Math.min(1,(1.08 - gardenDistance) / .30));
-        height *= 1 - gardenClear * .96;
-      } else {
+      if (species > .5) {
         height *= .76;
       }
       const rootLift = .018 + (1 - rootRatio) * .045 * (1 - collapse * .54)
@@ -577,7 +541,7 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
   const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
   const groundProgram = program(gl,groundVertex,groundFragment);
-  const requested = matchMedia("(max-width:700px)").matches ? 90000 : 132000;
+  const requested = matchMedia("(max-width:700px)").matches ? 112000 : 172000;
   const grass = grassGeometry(gl,requested);
   const ground = groundGeometry(gl);
   const terrain = createTerrainTexture(gl);
@@ -614,7 +578,7 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.disable(gl.CULL_FACE);
-    gl.clearColor(.0980,.1569,.0941,1);
+    gl.clearColor(.1216,.2000,.1255,1);
     gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D,terrain.texture);
@@ -690,7 +654,7 @@ export function OrnamentalGrass() {
           </figcaption>
         </figure>
         <label
-          className={`wind-control${isDragging ? " is-dragging" : ""}`}
+          className={`wind-control${isDragging ? " is-dragging" : ""}${windStrength >= 100 ? " is-max" : ""}`}
           style={{
             "--wind-fill": windFill,
             "--wind-pull": `${elasticPull * .725}px`,
