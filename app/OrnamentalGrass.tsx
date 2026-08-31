@@ -165,7 +165,10 @@ void main() {
   float dryFamily = smoothstep(0.60, 0.93, shade);
   vec3 weathered = fract(shade * 13.71) < 0.52 ? strawBlade : grayBlade;
   color = mix(color, weathered, dryFamily * 0.74);
-  color = mix(color, mix(grayBlade, strawBlade, 0.58), flattened * (0.29 + dryFamily * 0.25));
+  // Trough blades stay cool and dark, but retain the same separated strand
+  // shading as the lit mounds instead of fading into a pale floor-like mat.
+  color = mix(color, mix(shadowBlade, coolBlade, 0.62),
+    flattened * (0.34 + dryFamily * 0.16));
   color *= mix(0.82, 1.12, fract(shade * 7.31));
   vec3 accentRoot = vec3(0.2784, 0.3216, 0.0471);
   vec3 accentLeaf = mix(
@@ -220,14 +223,17 @@ float hash(vec2 p) {
 void main() {
   float fine = hash(floor(vWorld * 13.0));
   float broad = sin(vWorld.x * 0.52 + vWorld.y * 0.29) * 0.5 + 0.5;
-  float fiberA = pow(0.5 + 0.5 * sin(vWorld.x * 31.0 + vWorld.y * 4.1), 12.0);
-  float fiberB = pow(0.5 + 0.5 * sin(vWorld.x * 8.6 - vWorld.y * 27.0), 15.0);
+  float fiberA = pow(0.5 + 0.5 * sin(vWorld.x * 31.0 + vWorld.y * 4.1), 18.0);
+  float fiberB = pow(0.5 + 0.5 * sin(vWorld.x * 8.6 - vWorld.y * 27.0), 19.0);
+  float fiberC = pow(0.5 + 0.5 * sin(vWorld.x * 21.0 + vWorld.y * 17.0), 22.0);
+  float fiberD = pow(0.5 + 0.5 * sin(vWorld.x * 42.0 - vWorld.y * 6.4), 25.0);
   vec3 deepest = vec3(0.1216, 0.2000, 0.1255);
   vec3 shadowGrass = vec3(0.1804, 0.2745, 0.1686);
   vec3 lifted = vec3(0.2510, 0.3451, 0.2235);
-  vec3 color = mix(deepest, shadowGrass, fine * 0.34 + broad * 0.24);
-  color = mix(color, lifted, (fiberA * 0.13 + fiberB * 0.08) * (0.60 + broad * 0.40));
-  color *= 1.05;
+  vec3 color = mix(deepest, shadowGrass, 0.34 + fine * 0.28 + broad * 0.20);
+  float compressedFibers = fiberA * 0.30 + fiberB * 0.24 + fiberC * 0.18 + fiberD * 0.14;
+  color = mix(color, lifted, compressedFibers * (0.66 + broad * 0.34));
+  color *= 1.07;
   outColor = vec4(color, 1.0);
 }`;
 
@@ -257,22 +263,22 @@ const featuredClumps: Clump[] = [
 // A low, overlapping layer of the same fine grass keeps every trough
 // vegetated. The featured mounds rise through it, so dark areas remain blades
 // in occlusion instead of exposed ground.
-const continuityClumps: Clump[] = Array.from({ length: 78 }, (_, index) => {
-  const columns = 6;
+const continuityClumps: Clump[] = Array.from({ length: 126 }, (_, index) => {
+  const columns = 7;
   const row = Math.floor(index / columns);
   const column = index % columns;
-  const stagger = row % 2 ? .50 : 0;
+  const stagger = row % 2 ? .42 : 0;
   return [
-    -5.68 + column * 2.26 + stagger + (seeded(index + 300, 1) - .5) * .48,
-    -19.30 + row * 2.22 + (seeded(index + 300, 2) - .5) * .44,
-    1.42 + seeded(index + 300, 3) * .28,
-    1.22 + seeded(index + 300, 4) * .26,
+    -5.72 + column * 1.88 + stagger + (seeded(index + 300, 1) - .5) * .38,
+    -19.48 + row * 1.76 + (seeded(index + 300, 2) - .5) * .36,
+    1.48 + seeded(index + 300, 3) * .30,
+    1.34 + seeded(index + 300, 4) * .28,
     (seeded(index + 300, 5) - .5) * .92,
     seeded(index + 300, 6) * Math.PI * 2,
     .54 + seeded(index + 300, 7) * .32,
-    .31 + seeded(index + 300, 8) * .075,
+    .34 + seeded(index + 300, 8) * .055,
     .12 + seeded(index + 300, 9) * .52,
-    .50 + seeded(index + 300, 10) * .08,
+    .62 + seeded(index + 300, 10) * .10,
   ];
 });
 
@@ -386,9 +392,10 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
     const flowX = Math.cos(localFlow);
     const flowZ = Math.sin(localFlow);
     const meanRadius = Math.sqrt(radiusX * radiusZ);
+    const isContinuity = density < .405 ? 1 : 0;
     const posture = seeded(clumpIndex, 32);
-    const upright = posture < .29 ? 1 : 0;
-    const flattened = posture > .76 ? 1 : 0;
+    const upright = isContinuity > .5 ? 0 : posture < .29 ? 1 : 0;
+    const flattened = isContinuity > .5 ? 0 : posture > .76 ? 1 : 0;
     const postureLength = upright > .5 ? 1.22 : flattened > .5 ? .66 : .94;
     const postureLift = upright > .5 ? 1.24 : flattened > .5 ? .54 : .90;
     const footprintScale = upright > .5 ? .88 : flattened > .5 ? 1.18 : 1.0;
@@ -421,7 +428,7 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
       const outwardLength = Math.hypot(rootX,rootZ) || 1;
       const outwardX = rootX / outwardLength;
       const outwardZ = rootZ / outwardLength;
-      const flattenedMat = density < .405 ? 1 : 0;
+      const flattenedMat = isContinuity;
       const broadFlow = flattenedMat > .5 ? .40 : .92;
       const fineFlow = flattenedMat > .5 ? .18 : .36;
       const patchAngle = localFlow
@@ -451,7 +458,7 @@ function grassGeometry(gl: WebGL2RenderingContext, requested: number) {
         ? meanRadius : 1.45 + (meanRadius - 1.45) * .28;
       let height = structuralLength * .98 * strandNoise * edgeLength
         * irregularProfile * strayLength * lengthScale * clumpLength
-        * (1 - foreground * .10) * (1 - flattenedMat * .47)
+        * (1 - foreground * .10) * (1 - flattenedMat * .24)
         * (1 - contactPatch * .23) * (1 - baseBlade * .19)
         * (1 - tangled * .06);
       const worldRootX = organicCenterX + rootX;
@@ -570,7 +577,7 @@ function start(canvas: HTMLCanvasElement, windAmount: { current: number }) {
   const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
   const groundProgram = program(gl,groundVertex,groundFragment);
-  const requested = matchMedia("(max-width:700px)").matches ? 122000 : 196000;
+  const requested = matchMedia("(max-width:700px)").matches ? 148000 : 232000;
   const grass = grassGeometry(gl,requested);
   const ground = groundGeometry(gl);
   const terrain = createTerrainTexture(gl);
