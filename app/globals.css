@@ -72,7 +72,7 @@ body {
 }
 
 .reference-map-button:hover {
-  transform: translateY(-1px);
+  transform: scale(1.025);
   box-shadow: 0 6px 18px rgb(15 20 13 / 14%);
 }
 
