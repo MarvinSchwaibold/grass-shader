@@ -43,9 +43,19 @@ struct ContentView: View {
 private struct RecordingGridPage: View {
     private let recordings = ["7394", "7398", "7400", "7401", "7403", "7406"]
     @StateObject private var transition = RetargetableProgressSpring()
+    @StateObject private var dragOffsetX = RetargetableProgressSpring(
+        allowedRange: nil
+    )
+    @StateObject private var dragOffsetY = RetargetableProgressSpring(
+        allowedRange: nil
+    )
+    @StateObject private var dragScale = RetargetableProgressSpring(
+        initialValue: 1,
+        allowedRange: 0.86...1
+    )
     @State private var selectedRecording: String?
+    @State private var selectedSourceFrame: CGRect?
     @State private var recordingFrames: [String: CGRect] = [:]
-    @State private var dragStartProgress: CGFloat = 1
     @State private var isDragging = false
 
     var body: some View {
@@ -79,23 +89,25 @@ private struct RecordingGridPage: View {
                                 resource: "study-\(recording)",
                                 fileExtension: "mp4"
                             )
+                            .frame(maxWidth: .infinity)
                             .frame(height: recordingHeight)
                             .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                            .background {
-                                GeometryReader { itemProxy in
-                                    Color.clear.preference(
-                                        key: RecordingFramePreferenceKey.self,
-                                        value: [
-                                            recording: itemProxy.frame(
-                                                in: .named("recording-stage")
-                                            )
-                                        ]
-                                    )
-                                }
-                            }
-                            .opacity(selectedRecording == recording ? 0 : 1)
                             .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
                         }
+                        .frame(maxWidth: .infinity)
+                        .background {
+                            GeometryReader { itemProxy in
+                                Color.clear.preference(
+                                    key: RecordingFramePreferenceKey.self,
+                                    value: [
+                                        recording: itemProxy.frame(
+                                            in: .named("recording-stage")
+                                        )
+                                    ]
+                                )
+                            }
+                        }
+                        .opacity(selectedRecording == recording ? 0 : 1)
                         .buttonStyle(FluidThumbnailButtonStyle())
                         .accessibilityLabel("Open grass study recording IMG_\(recording)")
                     }
@@ -104,7 +116,7 @@ private struct RecordingGridPage: View {
                 .allowsHitTesting(selectedRecording == nil)
 
                 if let selectedRecording,
-                   let sourceFrame = recordingFrames[selectedRecording] {
+                   let sourceFrame = selectedSourceFrame {
                     let progress = clamped(transition.value)
                     let visualFrame = interpolatedFrame(
                         from: sourceFrame,
@@ -116,14 +128,15 @@ private struct RecordingGridPage: View {
                         to: 28,
                         progress: progress
                     )
+                    let scale = dragScale.value
 
                     LoopingVideoView(
                         resource: "study-\(selectedRecording)",
                         fileExtension: "mp4"
                     )
                     .frame(
-                        width: visualFrame.width,
-                        height: visualFrame.height
+                        width: visualFrame.width * scale,
+                        height: visualFrame.height * scale
                     )
                     .clipShape(
                         RoundedRectangle(
@@ -131,7 +144,10 @@ private struct RecordingGridPage: View {
                             style: .continuous
                         )
                     )
-                    .position(x: visualFrame.midX, y: visualFrame.midY)
+                    .position(
+                        x: visualFrame.midX + dragOffsetX.value,
+                        y: visualFrame.midY + dragOffsetY.value
+                    )
                     .shadow(
                         color: .black.opacity(0.13 * Double(progress)),
                         radius: 20 * progress,
@@ -168,18 +184,24 @@ private struct RecordingGridPage: View {
         DragGesture(minimumDistance: 8)
             .onChanged { value in
                 let distance = max(0, value.translation.height)
-                guard distance > 0 else { return }
+                guard distance > 0 || isDragging else { return }
 
                 if !isDragging {
                     isDragging = true
                     transition.beginInteraction()
-                    dragStartProgress = transition.value
+                    dragOffsetX.beginInteraction()
+                    dragOffsetY.beginInteraction()
+                    dragScale.beginInteraction()
                 }
 
-                let dismissalDistance = max(1, stageHeight * 0.3)
-                transition.setInteractive(
-                    dragStartProgress - distance / dismissalDistance
+                dragOffsetX.setInteractive(value.translation.width)
+                dragOffsetY.setInteractive(distance)
+
+                let compressionProgress = min(
+                    1,
+                    distance / max(1, stageHeight * 0.32)
                 )
+                dragScale.setInteractive(1 - compressionProgress * 0.08)
             }
             .onEnded { value in
                 guard isDragging else { return }
@@ -192,10 +214,28 @@ private struct RecordingGridPage: View {
                     value.predictedEndTranslation.height
                         - value.translation.height
                 )
-                let releaseVelocity = -(projectedTravel / projectionDuration)
+                let releaseVelocityY = projectedTravel / projectionDuration
+                let releaseVelocityX = (
+                    value.predictedEndTranslation.width
+                        - value.translation.width
+                ) / projectionDuration
+                let releaseVelocity = -releaseVelocityY
                     / dismissalDistance
-                let shouldClose = transition.value < 0.7
+                let shouldClose = value.translation.height > stageHeight * 0.12
                     || releaseVelocity < -0.72
+
+                dragOffsetX.retarget(
+                    to: 0,
+                    releaseVelocity: releaseVelocityX
+                )
+                dragOffsetY.retarget(
+                    to: 0,
+                    releaseVelocity: releaseVelocityY
+                )
+                dragScale.retarget(
+                    to: 1,
+                    releaseVelocity: releaseVelocity * 0.08
+                )
 
                 if shouldClose {
                     close(releaseVelocity: releaseVelocity)
@@ -209,8 +249,12 @@ private struct RecordingGridPage: View {
     }
 
     private func open(_ recording: String) {
-        guard recordingFrames[recording] != nil else { return }
+        guard let sourceFrame = recordingFrames[recording] else { return }
+        selectedSourceFrame = sourceFrame
         selectedRecording = recording
+        dragOffsetX.jump(to: 0)
+        dragOffsetY.jump(to: 0)
+        dragScale.jump(to: 1)
         transition.jump(to: 0)
         DispatchQueue.main.async {
             transition.retarget(to: 1)
@@ -218,6 +262,7 @@ private struct RecordingGridPage: View {
     }
 
     private func togglePresentation() {
+        settleDirectManipulation()
         if transition.target > 0.5 {
             close()
         } else {
@@ -227,8 +272,18 @@ private struct RecordingGridPage: View {
 
     private func close(releaseVelocity: CGFloat? = nil) {
         transition.retarget(to: 0, releaseVelocity: releaseVelocity) {
+            dragOffsetX.jump(to: 0)
+            dragOffsetY.jump(to: 0)
+            dragScale.jump(to: 1)
             selectedRecording = nil
+            selectedSourceFrame = nil
         }
+    }
+
+    private func settleDirectManipulation() {
+        dragOffsetX.retarget(to: 0)
+        dragOffsetY.retarget(to: 0)
+        dragScale.retarget(to: 1)
     }
 }
 
@@ -269,20 +324,41 @@ private func interpolatedFrame(
 }
 
 private final class RetargetableProgressSpring: NSObject, ObservableObject {
-    @Published private(set) var value: CGFloat = 0
-    private(set) var target: CGFloat = 0
+    @Published private(set) var value: CGFloat
+    private(set) var target: CGFloat
 
     private let stiffness: CGFloat = 300
     private let damping: CGFloat = 35
     private let mass: CGFloat = 1
+    private let allowedRange: ClosedRange<CGFloat>?
     private var velocity: CGFloat = 0
     private var displayLink: CADisplayLink?
     private var lastTimestamp: CFTimeInterval?
     private var completion: (() -> Void)?
 
+    init(
+        initialValue: CGFloat = 0,
+        allowedRange: ClosedRange<CGFloat>? = 0...1
+    ) {
+        let constrainedValue: CGFloat
+        if let allowedRange {
+            constrainedValue = min(
+                allowedRange.upperBound,
+                max(allowedRange.lowerBound, initialValue)
+            )
+        } else {
+            constrainedValue = initialValue
+        }
+
+        value = constrainedValue
+        target = constrainedValue
+        self.allowedRange = allowedRange
+        super.init()
+    }
+
     func jump(to value: CGFloat) {
         stopAnimation()
-        let nextValue = clamped(value)
+        let nextValue = constrained(value)
         self.value = nextValue
         target = nextValue
         velocity = 0
@@ -293,7 +369,7 @@ private final class RetargetableProgressSpring: NSObject, ObservableObject {
     }
 
     func setInteractive(_ value: CGFloat) {
-        self.value = clamped(value)
+        self.value = constrained(value)
         target = self.value
         velocity = 0
     }
@@ -304,7 +380,7 @@ private final class RetargetableProgressSpring: NSObject, ObservableObject {
         completion: (() -> Void)? = nil
     ) {
         self.completion = completion
-        self.target = clamped(target)
+        self.target = constrained(target)
         if let releaseVelocity {
             velocity = releaseVelocity
         }
@@ -326,6 +402,14 @@ private final class RetargetableProgressSpring: NSObject, ObservableObject {
         displayLink?.invalidate()
         displayLink = nil
         lastTimestamp = nil
+    }
+
+    private func constrained(_ value: CGFloat) -> CGFloat {
+        guard let allowedRange else { return value }
+        return min(
+            allowedRange.upperBound,
+            max(allowedRange.lowerBound, value)
+        )
     }
 
     @objc private func step(_ displayLink: CADisplayLink) {
