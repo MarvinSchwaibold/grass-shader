@@ -29,7 +29,7 @@ body {
   display: grid;
   grid-template-columns: repeat(2, auto);
   align-items: start;
-  gap: 16px;
+  gap: 28px;
 }
 
 .grass-experience {
@@ -331,7 +331,7 @@ body {
 
 @media (max-width: 520px) {
   .page-shell { padding-inline: 10px; }
-  .grass-comparison { gap: 10px; }
+  .grass-comparison { gap: 14px; }
   .grass-stage {
     height: min(calc(100svh - 112px), calc(89.66vw - 26.9px));
   }
