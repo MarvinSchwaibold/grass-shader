@@ -55,7 +55,6 @@ private struct RecordingGridPage: View {
     )
     @State private var selectedRecording: String?
     @State private var selectedSourceFrame: CGRect?
-    @State private var recordingFrames: [String: CGRect] = [:]
     @State private var isDragging = false
 
     var body: some View {
@@ -82,34 +81,46 @@ private struct RecordingGridPage: View {
                     spacing: 12
                 ) {
                     ForEach(recordings, id: \.self) { recording in
-                        Button {
-                            open(recording)
-                        } label: {
-                            LoopingVideoView(
-                                resource: "study-\(recording)",
-                                fileExtension: "mp4"
-                            )
-                            .frame(maxWidth: .infinity)
-                            .frame(height: recordingHeight)
-                            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                            .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .background {
-                            GeometryReader { itemProxy in
-                                Color.clear.preference(
-                                    key: RecordingFramePreferenceKey.self,
-                                    value: [
-                                        recording: itemProxy.frame(
-                                            in: .named("recording-stage")
-                                        )
-                                    ]
+                        GeometryReader { itemProxy in
+                            Button {
+                                open(
+                                    recording,
+                                    sourceFrame: itemProxy.frame(
+                                        in: .named("recording-stage")
+                                    )
+                                )
+                            } label: {
+                                ZStack {
+                                    LoopingVideoView(
+                                        resource: "study-\(recording)",
+                                        fileExtension: "mp4"
+                                    )
+                                    .allowsHitTesting(false)
+
+                                    Color.clear
+                                        .contentShape(Rectangle())
+                                }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .clipShape(
+                                    RoundedRectangle(
+                                        cornerRadius: 15,
+                                        style: .continuous
+                                    )
+                                )
+                                .contentShape(
+                                    RoundedRectangle(
+                                        cornerRadius: 15,
+                                        style: .continuous
+                                    )
                                 )
                             }
+                            .frame(maxWidth: .infinity)
+                            .frame(maxHeight: .infinity)
+                            .opacity(selectedRecording == recording ? 0 : 1)
+                            .buttonStyle(FluidThumbnailButtonStyle())
+                            .accessibilityLabel("Open grass study recording IMG_\(recording)")
                         }
-                        .opacity(selectedRecording == recording ? 0 : 1)
-                        .buttonStyle(FluidThumbnailButtonStyle())
-                        .accessibilityLabel("Open grass study recording IMG_\(recording)")
+                        .frame(height: recordingHeight)
                     }
                 }
                 .frame(width: stageWidth, height: stageHeight)
@@ -169,9 +180,6 @@ private struct RecordingGridPage: View {
             .frame(width: stageWidth, height: stageHeight)
             .background(Color.white)
             .coordinateSpace(name: "recording-stage")
-            .onPreferenceChange(RecordingFramePreferenceKey.self) { frames in
-                recordingFrames = frames
-            }
             .position(
                 x: proxy.size.width / 2,
                 y: topInset + stageHeight / 2
@@ -248,8 +256,7 @@ private struct RecordingGridPage: View {
             }
     }
 
-    private func open(_ recording: String) {
-        guard let sourceFrame = recordingFrames[recording] else { return }
+    private func open(_ recording: String, sourceFrame: CGRect) {
         selectedSourceFrame = sourceFrame
         selectedRecording = recording
         dragOffsetX.jump(to: 0)
@@ -284,17 +291,6 @@ private struct RecordingGridPage: View {
         dragOffsetX.retarget(to: 0)
         dragOffsetY.retarget(to: 0)
         dragScale.retarget(to: 1)
-    }
-}
-
-private struct RecordingFramePreferenceKey: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-
-    static func reduce(
-        value: inout [String: CGRect],
-        nextValue: () -> [String: CGRect]
-    ) {
-        value.merge(nextValue(), uniquingKeysWith: { _, next in next })
     }
 }
 
