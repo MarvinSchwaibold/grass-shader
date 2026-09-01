@@ -143,9 +143,14 @@ void main() {
   float terrainZ = terrainShape(aRoot.xz + vec2(0.0, 0.16));
   // DialKit's authored terrain value is 2.0. Zero removes all relief and
   // values above 2.0 exaggerate the exact same height field.
-  float terrainStrength = mix(0.58, 0.43, secondStudy) * (uTerrainDepth * 0.5);
+  float authoredTerrainStrength = mix(0.58, 0.43, secondStudy);
+  float terrainStrength = authoredTerrainStrength * (uTerrainDepth * 0.5);
   float terrainY = (terrainLevel - 0.5) * terrainStrength;
-  vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) * terrainStrength / 0.16;
+  // Depth controls root elevation. Surface orientation reaches its authored
+  // state at 2.0 and then stays there, so exaggerated hills do not force the
+  // blades progressively flatter as their elevation continues to increase.
+  float orientationStrength = authoredTerrainStrength * min(uTerrainDepth * 0.5, 1.0);
+  vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) * orientationStrength / 0.16;
   vec3 terrainNormal = normalize(vec3(-terrainGradient.x, 1.0, -terrainGradient.y));
   float slopeAmount = smoothstep(0.018, 0.18, length(terrainGradient));
   vec2 downhill = normalize(-terrainGradient + vec2(0.0001));
