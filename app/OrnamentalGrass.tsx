@@ -1531,7 +1531,7 @@ export function OrnamentalGrass() {
   const lengthControls = useDialKit("Blade Lengths", {
     overall: [1, .5, 1.5, .01],
     base: [1, .25, 2, .01],
-    mounds: [1, .25, 2, .01],
+    length: [1, .25, 2, .01],
     terrainDepth: [1, 0, 4, .01],
     showGrass: true,
   }, {
@@ -1543,7 +1543,7 @@ export function OrnamentalGrass() {
   bladeLengths.current = {
     overall: lengthControls.overall,
     base: lengthControls.base,
-    mounds: lengthControls.mounds,
+    mounds: lengthControls.length,
   };
   terrainControls.current = {
     depth: lengthControls.terrainDepth,
