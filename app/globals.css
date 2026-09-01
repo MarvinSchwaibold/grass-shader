@@ -50,7 +50,7 @@ body {
   grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: clamp(10px, 1.15vw, 15px);
   padding: 0;
-  background: #ffffff;
+  background: transparent;
 }
 
 .recording-grid-item {
@@ -219,6 +219,10 @@ body {
   border-radius: 12px;
   background: #001e08;
   isolation: isolate;
+}
+
+.grass-stage.recording-grid-stage {
+  background: transparent;
 }
 
 @media (min-width: 521px) {
