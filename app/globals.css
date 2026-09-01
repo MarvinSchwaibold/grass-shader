@@ -17,6 +17,11 @@ body {
   background: #ffffff;
 }
 
+/* Give the expanded DialKit panel breathing room after its final control. */
+.dialkit-panel-inner:not([data-collapsed="true"]) {
+  padding-bottom: 16px;
+}
+
 .page-shell {
   display: grid;
   min-height: 100svh;
