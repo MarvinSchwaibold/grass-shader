@@ -23,6 +23,7 @@
 		10000000000000000000001F /* study-7403.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000034 /* study-7403.mp4 */; };
 		10000000000000000000003A /* study-7406.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000035 /* study-7406.mp4 */; };
 		10000000000000000000003B /* Wave in Frameworks */ = {isa = PBXBuildFile; productRef = 10000000000000000000003C /* Wave */; };
+		10000000000000000000003E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000036 /* Assets.xcassets */; };
 
 		100000000000000000000020 /* GrassStudyFluidDemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrassStudyFluidDemoApp.swift; sourceTree = "<group>"; };
 		100000000000000000000021 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -41,6 +42,7 @@
 		10000000000000000000002F /* study-7401.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "study-7401.mp4"; sourceTree = "<group>"; };
 		100000000000000000000034 /* study-7403.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "study-7403.mp4"; sourceTree = "<group>"; };
 		100000000000000000000035 /* study-7406.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "study-7406.mp4"; sourceTree = "<group>"; };
+		100000000000000000000036 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		10000000000000000000002A /* GrassStudyFluidDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GrassStudyFluidDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 
 		100000000000000000000030 = {
@@ -54,6 +56,7 @@
 		100000000000000000000031 /* GrassStudyFluidDemo */ = {
 			isa = PBXGroup;
 			children = (
+				100000000000000000000036 /* Assets.xcassets */,
 				100000000000000000000020 /* GrassStudyFluidDemoApp.swift */,
 				100000000000000000000021 /* ContentView.swift */,
 				100000000000000000000022 /* LoopingVideoView.swift */,
@@ -106,6 +109,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				10000000000000000000003E /* Assets.xcassets in Resources */,
 				10000000000000000000001A /* WebDemo in Resources */,
 				100000000000000000000014 /* IMG_7400.mp4 in Resources */,
 				100000000000000000000015 /* IMG_7400-poster.jpg in Resources */,
@@ -166,8 +170,10 @@
 		};
 
 		100000000000000000000070 /* Debug target */ = {isa = XCBuildConfiguration; buildSettings = {
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 			CODE_SIGN_STYLE = Automatic;
 			CURRENT_PROJECT_VERSION = 1;
+			DEVELOPMENT_TEAM = 525PQP75P6;
 			DEVELOPMENT_ASSET_PATHS = "";
 			GENERATE_INFOPLIST_FILE = YES;
 			INFOPLIST_KEY_CFBundleDisplayName = "Grass Study";
@@ -185,8 +191,10 @@
 			TARGETED_DEVICE_FAMILY = 1;
 		}; name = Debug; };
 		100000000000000000000071 /* Release target */ = {isa = XCBuildConfiguration; buildSettings = {
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 			CODE_SIGN_STYLE = Automatic;
 			CURRENT_PROJECT_VERSION = 1;
+			DEVELOPMENT_TEAM = 525PQP75P6;
 			GENERATE_INFOPLIST_FILE = YES;
 			INFOPLIST_KEY_CFBundleDisplayName = "Grass Study";
 			INFOPLIST_KEY_CADisableMinimumFrameDuration = YES;

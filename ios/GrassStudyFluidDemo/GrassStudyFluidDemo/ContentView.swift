@@ -65,9 +65,10 @@ private struct RecordingGridPage: View {
                 width: stageWidth,
                 height: stageHeight
             )
-            let isReturningToSource = selectedSourceFrame.map {
-                motion.isTargeting($0)
-            } ?? false
+            let recordingFrames = recordingFrames(
+                stageWidth: stageWidth,
+                recordingHeight: recordingHeight
+            )
 
             ZStack {
                 LazyVGrid(
@@ -78,46 +79,45 @@ private struct RecordingGridPage: View {
                     spacing: 12
                 ) {
                     ForEach(recordings, id: \.self) { recording in
-                        GeometryReader { itemProxy in
-                            Button {
-                                open(
-                                    recording,
-                                    sourceFrame: itemProxy.frame(
-                                        in: .named("recording-stage")
-                                    ),
-                                    expandedFrame: expandedFrame
+                        Button {
+                            guard let sourceFrame = recordingFrames[recording] else {
+                                return
+                            }
+                            open(
+                                recording,
+                                sourceFrame: sourceFrame,
+                                expandedFrame: expandedFrame
+                            )
+                        } label: {
+                            ZStack {
+                                LoopingVideoView(
+                                    resource: "study-\(recording)",
+                                    fileExtension: "mp4"
                                 )
-                            } label: {
-                                ZStack {
-                                    LoopingVideoView(
-                                        resource: "study-\(recording)",
-                                        fileExtension: "mp4"
-                                    )
-                                    .allowsHitTesting(false)
+                                .allowsHitTesting(false)
 
-                                    Color.clear
-                                        .contentShape(Rectangle())
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .clipShape(
-                                    RoundedRectangle(
-                                        cornerRadius: 15,
-                                        style: .continuous
-                                    )
-                                )
-                                .contentShape(
-                                    RoundedRectangle(
-                                        cornerRadius: 15,
-                                        style: .continuous
-                                    )
-                                )
+                                Color.clear
+                                    .contentShape(Rectangle())
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .opacity(selectedRecording == recording ? 0 : 1)
-                            .buttonStyle(FluidThumbnailButtonStyle())
-                            .accessibilityLabel("Open grass study recording IMG_\(recording)")
+                            .clipShape(
+                                RoundedRectangle(
+                                    cornerRadius: 15,
+                                    style: .continuous
+                                )
+                            )
+                            .contentShape(
+                                RoundedRectangle(
+                                    cornerRadius: 15,
+                                    style: .continuous
+                                )
+                            )
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .frame(height: recordingHeight)
+                        .opacity(selectedRecording == recording ? 0 : 1)
+                        .buttonStyle(FluidThumbnailButtonStyle())
+                        .accessibilityLabel("Open grass study recording IMG_\(recording)")
                     }
                 }
                 .frame(width: stageWidth, height: stageHeight)
@@ -145,9 +145,16 @@ private struct RecordingGridPage: View {
                             style: .continuous
                         )
                     )
-                    .onTapGesture {
-                        togglePresentation(expandedFrame: expandedFrame)
-                    }
+                    .gesture(
+                        SpatialTapGesture()
+                            .onEnded { value in
+                                handleOverlayTap(
+                                    localPoint: value.location,
+                                    recordingFrames: recordingFrames,
+                                    expandedFrame: expandedFrame
+                                )
+                            }
+                    )
                     .highPriorityGesture(
                         dismissGesture(
                             stageHeight: stageHeight,
@@ -156,7 +163,6 @@ private struct RecordingGridPage: View {
                     )
                     .accessibilityLabel("Grass study recording IMG_\(selectedRecording). Tap or swipe down to close.")
                     .accessibilityAddTraits(.isModal)
-                    .allowsHitTesting(!isReturningToSource)
                     .zIndex(100)
                 }
             }
@@ -259,6 +265,61 @@ private struct RecordingGridPage: View {
         selectedRecording = recording
         isDragging = false
         motion.retarget(frame: expandedFrame, cornerRadius: 28)
+    }
+
+    private func handleOverlayTap(
+        localPoint: CGPoint,
+        recordingFrames: [String: CGRect],
+        expandedFrame: CGRect
+    ) {
+        let stagePoint = CGPoint(
+            x: motion.frame.minX + localPoint.x,
+            y: motion.frame.minY + localPoint.y
+        )
+        let isTargetingSource = selectedSourceFrame.map {
+            motion.isTargeting($0)
+        } ?? false
+        let isInFlightNearGrid = isTargetingSource
+            || !motion.isAt(expandedFrame)
+
+        if isInFlightNearGrid,
+           let recording = recordings.first(where: {
+               recordingFrames[$0]?.contains(stagePoint) == true
+           }),
+           recording != selectedRecording,
+           let sourceFrame = recordingFrames[recording] {
+            open(
+                recording,
+                sourceFrame: sourceFrame,
+                expandedFrame: expandedFrame
+            )
+            return
+        }
+
+        togglePresentation(expandedFrame: expandedFrame)
+    }
+
+    private func recordingFrames(
+        stageWidth: CGFloat,
+        recordingHeight: CGFloat
+    ) -> [String: CGRect] {
+        let spacing: CGFloat = 12
+        let recordingWidth = max(1, (stageWidth - spacing) / 2)
+        return Dictionary(uniqueKeysWithValues: recordings.enumerated().map {
+            index,
+            recording in
+            let column = index % 2
+            let row = index / 2
+            return (
+                recording,
+                CGRect(
+                    x: CGFloat(column) * (recordingWidth + spacing),
+                    y: CGFloat(row) * (recordingHeight + spacing),
+                    width: recordingWidth,
+                    height: recordingHeight
+                )
+            )
+        })
     }
 
     private func togglePresentation(expandedFrame: CGRect) {
@@ -388,6 +449,13 @@ private final class WaveArtifactMotion: ObservableObject {
             && abs(target.minY - frame.minY) < 0.5
             && abs(target.width - frame.width) < 0.5
             && abs(target.height - frame.height) < 0.5
+    }
+
+    func isAt(_ frame: CGRect) -> Bool {
+        abs(self.frame.minX - frame.minX) < 0.5
+            && abs(self.frame.minY - frame.minY) < 0.5
+            && abs(self.frame.width - frame.width) < 0.5
+            && abs(self.frame.height - frame.height) < 0.5
     }
 
     private func stopAnimators() {
