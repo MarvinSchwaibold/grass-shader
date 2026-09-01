@@ -266,54 +266,55 @@ void main() {
 
 const terrainVertex = `#version 300 es
 precision highp float;
-layout(location=0) in vec2 aRootXZ;
-uniform mat4 uVP;
-uniform float uTerrainDepth;
-uniform float uStudy;
-uniform sampler2D uTerrain;
+layout(location=0) in vec2 aTerrainUV;
 out vec2 vTerrainUV;
-out vec3 vTerrainNormal;
-out float vTerrainLevel;
-
-vec2 terrainUV(vec2 xz) {
-  return vec2((xz.x + 10.0) / 20.0, (12.0 - xz.y) / 34.0);
-}
-
-float terrainShape(vec2 xz) {
-  vec3 sampleColor = textureLod(uTerrain, clamp(terrainUV(xz), 0.0, 1.0), 5.0).rgb;
-  float luminance = dot(sampleColor, vec3(0.2126, 0.7152, 0.0722));
-  return smoothstep(0.19, 0.76, luminance);
-}
 
 void main() {
-  float secondStudy = step(0.5, uStudy);
-  float level = terrainShape(aRootXZ);
-  float levelX = terrainShape(aRootXZ + vec2(0.12, 0.0));
-  float levelZ = terrainShape(aRootXZ + vec2(0.0, 0.12));
-  float strength = mix(0.58, 0.43, secondStudy) * uTerrainDepth;
-  vec2 gradient = vec2(levelX - level, levelZ - level) * strength / 0.12;
-  vec3 world = vec3(aRootXZ.x, (level - 0.5) * strength, aRootXZ.y);
-  vTerrainUV = clamp(terrainUV(aRootXZ), 0.0, 1.0);
-  vTerrainNormal = normalize(vec3(-gradient.x, 1.0, -gradient.y));
-  vTerrainLevel = level;
-  gl_Position = uVP * vec4(world, 1.0);
+  // Match object-fit: cover for the 367x652 authored map inside the
+  // 832x1492 study frame. Only the tiny symmetric horizontal excess is cut.
+  vTerrainUV = vec2(mix(0.00466, 0.99534, aTerrainUV.x), aTerrainUV.y);
+  gl_Position = vec4(aTerrainUV * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
 const terrainFragment = `#version 300 es
 precision highp float;
 in vec2 vTerrainUV;
-in vec3 vTerrainNormal;
-in float vTerrainLevel;
+uniform sampler2D uTerrain;
 uniform sampler2D uTerrainVisual;
+uniform float uTerrainDepth;
 out vec4 outColor;
+
+float terrainShape(vec2 uv) {
+  vec3 sampleColor = texture(uTerrain, clamp(uv, 0.0, 1.0)).rgb;
+  float luminance = dot(sampleColor, vec3(0.2126, 0.7152, 0.0722));
+  return smoothstep(0.19, 0.76, luminance);
+}
 
 void main() {
   vec3 mapColor = texture(uTerrainVisual, vTerrainUV).rgb;
+  ivec2 terrainSize = textureSize(uTerrain, 0);
+  vec2 texel = 1.0 / vec2(max(terrainSize, ivec2(1)));
+  float level = terrainShape(vTerrainUV);
+  float levelX = terrainShape(vTerrainUV + vec2(texel.x * 2.0, 0.0));
+  float levelY = terrainShape(vTerrainUV + vec2(0.0, texel.y * 2.0));
+  vec2 gradient = vec2(levelX - level, levelY - level) / max(texel * 2.0, vec2(0.0001));
+  vec3 normal = normalize(vec3(-gradient.x * 0.018 * uTerrainDepth, 1.0,
+    -gradient.y * 0.018 * uTerrainDepth));
   vec3 sun = normalize(vec3(-0.54, 0.78, 0.32));
-  float direct = max(dot(normalize(vTerrainNormal), sun), 0.0);
-  float formLight = 0.76 + direct * 0.34;
-  float heightLift = mix(0.91, 1.05, vTerrainLevel);
-  outColor = vec4(mapColor * formLight * heightLift, 1.0);
+  float direct = max(dot(normal, sun), 0.0);
+
+  // At the authored value of 1.0 this is the reference map pixel-for-pixel.
+  // Below 1.0 the baked relief is compressed toward a flat soil value; above
+  // 1.0 the same spatial map gains stronger hill-side lighting without a new
+  // crop, camera projection, or procedural mound layout.
+  float mapLuma = dot(mapColor, vec3(0.2126, 0.7152, 0.0722));
+  vec3 mapChroma = mapColor / max(mapLuma, 0.08);
+  vec3 flatColor = mapChroma * 0.54;
+  vec3 color = mix(flatColor, mapColor, min(uTerrainDepth, 1.0));
+  float extraDepth = clamp((uTerrainDepth - 1.0) / 3.0, 0.0, 1.0);
+  float reliefLight = 0.78 + direct * 0.34 + (level - 0.5) * 0.12;
+  color *= mix(1.0, reliefLight, extraDepth);
+  outColor = vec4(color, 1.0);
 }`;
 
 const grassFragment = `#version 300 es
@@ -869,11 +870,9 @@ function terrainGeometry(gl: WebGL2RenderingContext) {
   const vertices = new Float32Array((columns + 1) * (rows + 1) * 2);
   let vertexOffset = 0;
   for (let row = 0; row <= rows; row += 1) {
-    const z = 12 - (row / rows) * 35;
     for (let column = 0; column <= columns; column += 1) {
-      const x = -8.4 + (column / columns) * 16.8;
-      vertices[vertexOffset] = x;
-      vertices[vertexOffset + 1] = z;
+      vertices[vertexOffset] = column / columns;
+      vertices[vertexOffset + 1] = row / rows;
       vertexOffset += 2;
     }
   }
@@ -1016,16 +1015,14 @@ function start(
   const grassTerrainDepth = gl.getUniformLocation(grassProgram,"uTerrainDepth");
   const studyUniform = gl.getUniformLocation(grassProgram,"uStudy");
   const cameraUniform = gl.getUniformLocation(grassProgram,"uCamera");
-  const terrainVP = gl.getUniformLocation(terrainProgram,"uVP");
   const terrainTextureUniform = gl.getUniformLocation(terrainProgram,"uTerrain");
   const terrainVisualUniform = gl.getUniformLocation(terrainProgram,"uTerrainVisual");
   const terrainDepthUniform = gl.getUniformLocation(terrainProgram,"uTerrainDepth");
-  const terrainStudyUniform = gl.getUniformLocation(terrainProgram,"uStudy");
   if (
     !grassVP || !grassTerrain || !referenceColorFieldUniform || !generatedGradientFieldUniform
     || !resolutionUniform || !time || !windScale || !bladeLengthScale || !grassTerrainDepth
-    || !studyUniform || !cameraUniform || !terrainVP || !terrainTextureUniform
-    || !terrainVisualUniform || !terrainDepthUniform || !terrainStudyUniform
+    || !studyUniform || !cameraUniform || !terrainTextureUniform
+    || !terrainVisualUniform || !terrainDepthUniform
   ) {
     throw new Error("Missing uniforms");
   }
@@ -1065,11 +1062,9 @@ function start(
     const liveTerrain = terrainControls.current;
     if (!liveTerrain.showGrass) {
       gl.useProgram(terrainProgram);
-      gl.uniformMatrix4fv(terrainVP,false,vp);
       gl.uniform1i(terrainTextureUniform,0);
       gl.uniform1i(terrainVisualUniform,3);
       gl.uniform1f(terrainDepthUniform,liveTerrain.depth);
-      gl.uniform1f(terrainStudyUniform,secondStudy ? 1 : 0);
       gl.bindVertexArray(terrainMesh.vao);
       gl.drawElements(gl.TRIANGLES,terrainMesh.count,gl.UNSIGNED_INT,0);
       frame=requestAnimationFrame(render);
