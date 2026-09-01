@@ -60,6 +60,8 @@ const REFERENCE_MEDIA: ReferenceMedia[] = [
   },
 ];
 
+const STUDY_RECORDINGS = ["7394", "7398", "7400", "7401", "7403", "7406"];
+
 const grassVertex = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aBlade;
@@ -961,6 +963,30 @@ export function OrnamentalGrass() {
   };
   return (
     <div className="grass-comparison">
+      <section
+        className="recording-grid-experience"
+        aria-label="Six original grass study recordings"
+      >
+        <div className="grass-stage recording-grid-stage">
+          {STUDY_RECORDINGS.map((recording) => (
+            <figure className="recording-grid-item" key={recording}>
+              <video
+                className="recording-grid-video"
+                src={`/study-${recording}.mp4`}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                aria-label={`Grass study recording IMG_${recording}`}
+              />
+              <figcaption className="visually-hidden">
+                Grass study recording IMG_{recording}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </section>
       <section className="grass-experience" aria-label="Generated grass simulation">
         <div className="generated-stage-shell">
           <figure className="grass-stage generated-stage">
@@ -1135,7 +1161,6 @@ export function OrnamentalGrass() {
             })}
           </aside>
         </div>
-        <p className="reference-caption" aria-live="polite">{activeReference.caption}</p>
       </section>
     </div>
   );

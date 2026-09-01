@@ -1,0 +1,228 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 77;
+	objects = {
+
+		100000000000000000000010 /* GrassStudyFluidDemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000020 /* GrassStudyFluidDemoApp.swift */; };
+		100000000000000000000011 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000021 /* ContentView.swift */; };
+		100000000000000000000012 /* LoopingVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000022 /* LoopingVideoView.swift */; };
+		100000000000000000000013 /* BundledGrassWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000023 /* BundledGrassWebView.swift */; };
+		10000000000000000000001A /* WebDemo in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002B /* WebDemo */; };
+		100000000000000000000014 /* IMG_7400.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000024 /* IMG_7400.mp4 */; };
+		100000000000000000000015 /* IMG_7400-poster.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000025 /* IMG_7400-poster.jpg */; };
+		100000000000000000000016 /* pixel-hex-map.png in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000026 /* pixel-hex-map.png */; };
+		100000000000000000000017 /* color-relief-map.png in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000027 /* color-relief-map.png */; };
+		100000000000000000000018 /* gradient-map.png in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000028 /* gradient-map.png */; };
+		100000000000000000000019 /* topographical-map.png in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000029 /* topographical-map.png */; };
+		10000000000000000000001B /* study-7394.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002C /* study-7394.mp4 */; };
+		10000000000000000000001C /* study-7398.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002D /* study-7398.mp4 */; };
+		10000000000000000000001D /* study-7400.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002E /* study-7400.mp4 */; };
+		10000000000000000000001E /* study-7401.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002F /* study-7401.mp4 */; };
+		10000000000000000000001F /* study-7403.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000034 /* study-7403.mp4 */; };
+		10000000000000000000003A /* study-7406.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000035 /* study-7406.mp4 */; };
+
+		100000000000000000000020 /* GrassStudyFluidDemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrassStudyFluidDemoApp.swift; sourceTree = "<group>"; };
+		100000000000000000000021 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		100000000000000000000022 /* LoopingVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoopingVideoView.swift; sourceTree = "<group>"; };
+		100000000000000000000023 /* BundledGrassWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledGrassWebView.swift; sourceTree = "<group>"; };
+		10000000000000000000002B /* WebDemo */ = {isa = PBXFileReference; lastKnownFileType = folder; path = WebDemo; sourceTree = "<group>"; };
+		100000000000000000000024 /* IMG_7400.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = IMG_7400.mp4; sourceTree = "<group>"; };
+		100000000000000000000025 /* IMG_7400-poster.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "IMG_7400-poster.jpg"; sourceTree = "<group>"; };
+		100000000000000000000026 /* pixel-hex-map.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "pixel-hex-map.png"; sourceTree = "<group>"; };
+		100000000000000000000027 /* color-relief-map.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "color-relief-map.png"; sourceTree = "<group>"; };
+		100000000000000000000028 /* gradient-map.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "gradient-map.png"; sourceTree = "<group>"; };
+		100000000000000000000029 /* topographical-map.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "topographical-map.png"; sourceTree = "<group>"; };
+		10000000000000000000002C /* study-7394.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "study-7394.mp4"; sourceTree = "<group>"; };
+		10000000000000000000002D /* study-7398.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "study-7398.mp4"; sourceTree = "<group>"; };
+		10000000000000000000002E /* study-7400.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "study-7400.mp4"; sourceTree = "<group>"; };
+		10000000000000000000002F /* study-7401.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "study-7401.mp4"; sourceTree = "<group>"; };
+		100000000000000000000034 /* study-7403.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "study-7403.mp4"; sourceTree = "<group>"; };
+		100000000000000000000035 /* study-7406.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "study-7406.mp4"; sourceTree = "<group>"; };
+		10000000000000000000002A /* GrassStudyFluidDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GrassStudyFluidDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+
+		100000000000000000000030 = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000031 /* GrassStudyFluidDemo */,
+				100000000000000000000032 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		100000000000000000000031 /* GrassStudyFluidDemo */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000020 /* GrassStudyFluidDemoApp.swift */,
+				100000000000000000000021 /* ContentView.swift */,
+				100000000000000000000022 /* LoopingVideoView.swift */,
+				100000000000000000000023 /* BundledGrassWebView.swift */,
+				100000000000000000000033 /* Resources */,
+			);
+			path = GrassStudyFluidDemo;
+			sourceTree = "<group>";
+		};
+		100000000000000000000032 /* Products */ = {
+			isa = PBXGroup;
+			children = (10000000000000000000002A /* GrassStudyFluidDemo.app */);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		100000000000000000000033 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				10000000000000000000002B /* WebDemo */,
+				100000000000000000000024 /* IMG_7400.mp4 */,
+				100000000000000000000025 /* IMG_7400-poster.jpg */,
+				100000000000000000000026 /* pixel-hex-map.png */,
+				100000000000000000000027 /* color-relief-map.png */,
+				100000000000000000000028 /* gradient-map.png */,
+				100000000000000000000029 /* topographical-map.png */,
+				10000000000000000000002C /* study-7394.mp4 */,
+				10000000000000000000002D /* study-7398.mp4 */,
+				10000000000000000000002E /* study-7400.mp4 */,
+				10000000000000000000002F /* study-7401.mp4 */,
+				100000000000000000000034 /* study-7403.mp4 */,
+				100000000000000000000035 /* study-7406.mp4 */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+
+		100000000000000000000040 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000010 /* GrassStudyFluidDemoApp.swift in Sources */,
+				100000000000000000000011 /* ContentView.swift in Sources */,
+				100000000000000000000012 /* LoopingVideoView.swift in Sources */,
+				100000000000000000000013 /* BundledGrassWebView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		100000000000000000000041 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		100000000000000000000042 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10000000000000000000001A /* WebDemo in Resources */,
+				100000000000000000000014 /* IMG_7400.mp4 in Resources */,
+				100000000000000000000015 /* IMG_7400-poster.jpg in Resources */,
+				100000000000000000000016 /* pixel-hex-map.png in Resources */,
+				100000000000000000000017 /* color-relief-map.png in Resources */,
+				100000000000000000000018 /* gradient-map.png in Resources */,
+				100000000000000000000019 /* topographical-map.png in Resources */,
+				10000000000000000000001B /* study-7394.mp4 in Resources */,
+				10000000000000000000001C /* study-7398.mp4 in Resources */,
+				10000000000000000000001D /* study-7400.mp4 in Resources */,
+				10000000000000000000001E /* study-7401.mp4 in Resources */,
+				10000000000000000000001F /* study-7403.mp4 in Resources */,
+				10000000000000000000003A /* study-7406.mp4 in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		100000000000000000000050 /* GrassStudyFluidDemo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 100000000000000000000060 /* Build configuration list for PBXNativeTarget */;
+			buildPhases = (
+				100000000000000000000040 /* Sources */,
+				100000000000000000000041 /* Frameworks */,
+				100000000000000000000042 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = GrassStudyFluidDemo;
+			productName = GrassStudyFluidDemo;
+			productReference = 10000000000000000000002A /* GrassStudyFluidDemo.app */;
+			productType = "com.apple.product-type.application";
+		};
+
+		100000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {100000000000000000000050 = {CreatedOnToolsVersion = 26.6; };};
+			};
+			buildConfigurationList = 100000000000000000000061 /* Build configuration list for PBXProject */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = 100000000000000000000030;
+			productRefGroup = 100000000000000000000032 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (100000000000000000000050 /* GrassStudyFluidDemo */);
+		};
+
+		100000000000000000000070 /* Debug target */ = {isa = XCBuildConfiguration; buildSettings = {
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = 1;
+			DEVELOPMENT_ASSET_PATHS = "";
+			GENERATE_INFOPLIST_FILE = YES;
+			INFOPLIST_KEY_CFBundleDisplayName = "Grass Study";
+			INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+			INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+			INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+			IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+			MARKETING_VERSION = 1.0;
+			PRODUCT_BUNDLE_IDENTIFIER = com.marvinschwaibold.GrassStudyFluidDemo;
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SDKROOT = iphoneos;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
+			TARGETED_DEVICE_FAMILY = 1;
+		}; name = Debug; };
+		100000000000000000000071 /* Release target */ = {isa = XCBuildConfiguration; buildSettings = {
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = 1;
+			GENERATE_INFOPLIST_FILE = YES;
+			INFOPLIST_KEY_CFBundleDisplayName = "Grass Study";
+			INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+			INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+			INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+			IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+			MARKETING_VERSION = 1.0;
+			PRODUCT_BUNDLE_IDENTIFIER = com.marvinschwaibold.GrassStudyFluidDemo;
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SDKROOT = iphoneos;
+			SWIFT_COMPILATION_MODE = wholemodule;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
+			TARGETED_DEVICE_FAMILY = 1;
+		}; name = Release; };
+		100000000000000000000072 /* Debug project */ = {isa = XCBuildConfiguration; buildSettings = {
+			ALWAYS_SEARCH_USER_PATHS = NO;
+			CLANG_ENABLE_MODULES = YES;
+			CLANG_ENABLE_OBJC_ARC = YES;
+			DEBUG_INFORMATION_FORMAT = dwarf;
+			ENABLE_TESTABILITY = YES;
+			GCC_C_LANGUAGE_STANDARD = gnu17;
+			GCC_OPTIMIZATION_LEVEL = 0;
+			IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+			MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+			ONLY_ACTIVE_ARCH = YES;
+			SDKROOT = iphoneos;
+			SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+			SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+		}; name = Debug; };
+		100000000000000000000073 /* Release project */ = {isa = XCBuildConfiguration; buildSettings = {
+			ALWAYS_SEARCH_USER_PATHS = NO;
+			CLANG_ENABLE_MODULES = YES;
+			CLANG_ENABLE_OBJC_ARC = YES;
+			DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+			GCC_C_LANGUAGE_STANDARD = gnu17;
+			IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+			MTL_ENABLE_DEBUG_INFO = NO;
+			SDKROOT = iphoneos;
+			SWIFT_COMPILATION_MODE = wholemodule;
+		}; name = Release; };
+
+		100000000000000000000060 /* Build configuration list for PBXNativeTarget */ = {isa = XCConfigurationList; buildConfigurations = (100000000000000000000070, 100000000000000000000071); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		100000000000000000000061 /* Build configuration list for PBXProject */ = {isa = XCConfigurationList; buildConfigurations = (100000000000000000000072, 100000000000000000000073); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+	};
+	rootObject = 100000000000000000000001 /* Project object */;
+}

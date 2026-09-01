@@ -1,0 +1,92 @@
+html,
+body,
+.page-shell,
+.grass-comparison,
+.grass-experience,
+.generated-stage-shell,
+.generated-stage {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+body,
+.page-shell {
+  background: #ffffff !important;
+}
+
+.page-shell,
+.grass-comparison {
+  display: block !important;
+}
+
+.generated-stage-shell {
+  position: relative !important;
+  padding-bottom: 0 !important;
+}
+
+.generated-stage {
+  aspect-ratio: auto !important;
+  height: calc(100% - 56px) !important;
+  min-height: 0 !important;
+  border-radius: 28px !important;
+}
+
+.grass-canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.reference-experience {
+  display: none !important;
+}
+
+.wind-drawer {
+  --wind-shell-radius: 36px !important;
+  display: block !important;
+  top: calc(100% - 56px) !important;
+}
+
+.wind-control {
+  height: 66px !important;
+  font-size: 13px !important;
+  overflow: visible !important;
+}
+
+/*
+ * The visible shell stays exactly the same size. Only the transparent native
+ * range grows: 18px from the control edge equals a 15px halo around the outer
+ * white shell after accounting for its 3px inset.
+ */
+.wind-control__range {
+  inset: -18px !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+.wind-control__filled-label,
+.wind-control__label {
+  left: 16px !important;
+}
+
+.wind-control__value {
+  right: 16px !important;
+}
+
+.wind-control__filled-marker,
+.wind-control__empty-marker {
+  width: 5px !important;
+  height: 22px !important;
+}
+
+.wind-control__filled-marker {
+  right: 11px !important;
+}
+
+.wind-control__empty-marker {
+  left: 11px !important;
+}
