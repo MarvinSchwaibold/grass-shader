@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { DialRoot } from "dialkit";
+import "dialkit/styles.css";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -24,6 +26,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en"><body>{children}</body></html>
+    <html lang="en">
+      <body>
+        {children}
+        <DialRoot
+          position="top-right"
+          defaultOpen
+          theme="light"
+          productionEnabled
+        />
+      </body>
+    </html>
   );
 }

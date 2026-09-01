@@ -8,6 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { motion, useMotionValueEvent, useSpring } from "motion/react";
+import { useDialKit } from "dialkit";
 
 const WIND_MIN = .35;
 const WIND_MAX = 3.6;
@@ -113,6 +114,7 @@ layout(location=3) in vec4 aMotion;
 uniform mat4 uVP;
 uniform float uTime;
 uniform float uWindScale;
+uniform float uBladeLengthScale;
 uniform float uStudy;
 uniform sampler2D uTerrain;
 out vec3 vNormal;
@@ -144,7 +146,7 @@ void main() {
   vec3 terrainNormal = normalize(vec3(-terrainGradient.x, 1.0, -terrainGradient.y));
   float slopeAmount = smoothstep(0.018, 0.18, length(terrainGradient));
   vec2 downhill = normalize(-terrainGradient + vec2(0.0001));
-  float height = aShape.x * mix(0.94, 1.06, terrainLevel);
+  float height = aShape.x * uBladeLengthScale * mix(0.94, 1.06, terrainLevel);
   float width = aShape.y;
   vec2 radial = vec2(cos(aShape.z), sin(aShape.z));
   vec2 bladeSide = vec2(cos(aShape.w), sin(aShape.w));
@@ -858,6 +860,7 @@ function createColorFieldTexture(
 function start(
   canvas: HTMLCanvasElement,
   windAmount: { current: number },
+  bladeLengths: { current: { overall: number; base: number; mounds: number } },
   study: StudyId,
 ) {
   const gl = canvas.getContext("webgl2",{antialias:true,alpha:false,depth:true,powerPreference:"high-performance"});
@@ -898,11 +901,12 @@ function start(
   const resolutionUniform = gl.getUniformLocation(grassProgram,"uResolution");
   const time = gl.getUniformLocation(grassProgram,"uTime");
   const windScale = gl.getUniformLocation(grassProgram,"uWindScale");
+  const bladeLengthScale = gl.getUniformLocation(grassProgram,"uBladeLengthScale");
   const studyUniform = gl.getUniformLocation(grassProgram,"uStudy");
   const cameraUniform = gl.getUniformLocation(grassProgram,"uCamera");
   if (
     !grassVP || !grassTerrain || !referenceColorFieldUniform || !generatedGradientFieldUniform
-    || !resolutionUniform || !time || !windScale || !studyUniform
+    || !resolutionUniform || !time || !windScale || !bladeLengthScale || !studyUniform
     || !cameraUniform
   ) {
     throw new Error("Missing uniforms");
@@ -948,9 +952,12 @@ function start(
     gl.uniform1f(windScale,amount);
     gl.uniform1f(studyUniform,secondStudy ? 1 : 0);
     gl.uniform3fv(cameraUniform,camera);
+    const liveLengths = bladeLengths.current;
     gl.bindVertexArray(baseGrass.vao);
+    gl.uniform1f(bladeLengthScale,liveLengths.overall * liveLengths.base);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,baseGrass.vertices,baseGrass.count);
     gl.bindVertexArray(moundGrass.vao);
+    gl.uniform1f(bladeLengthScale,liveLengths.overall * liveLengths.mounds);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,moundGrass.vertices,moundGrass.count);
     frame=requestAnimationFrame(render);
   };
@@ -1386,6 +1393,20 @@ function RecordingGridExperience() {
 export function OrnamentalGrass() {
   const ref = useRef<HTMLCanvasElement>(null);
   const windAmount = useRef(windAmountFromStrength(DEFAULT_WIND_STRENGTH));
+  const lengthControls = useDialKit("Blade Lengths", {
+    overall: [1, .5, 1.5, .01],
+    base: [1, .25, 2, .01],
+    mounds: [1, .25, 2, .01],
+  }, {
+    id: "grass-blade-lengths",
+    persist: true,
+  });
+  const bladeLengths = useRef({ overall: 1, base: 1, mounds: 1 });
+  bladeLengths.current = {
+    overall: lengthControls.overall,
+    base: lengthControls.base,
+    mounds: lengthControls.mounds,
+  };
   const drag = useRef({
     active: false,
     left: 0,
@@ -1401,7 +1422,7 @@ export function OrnamentalGrass() {
   const [isDragging, setIsDragging] = useState(false);
   useEffect(() => {
     if (!ref.current) return;
-    try { return start(ref.current,windAmount,activeStudy); }
+    try { return start(ref.current,windAmount,bladeLengths,activeStudy); }
     catch (error) { console.error("Unable to start the ornamental grass field",error); }
   },[activeStudy]);
   const activeReference = REFERENCE_MEDIA.find((media) => media.id === activeReferenceId)
