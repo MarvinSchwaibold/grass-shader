@@ -24,13 +24,13 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $page) {
-            ReferenceStudyPage()
+            RecordingGridPage()
                 .tag(0)
 
-            GeneratedStudyPage()
+            ReferenceStudyPage()
                 .tag(1)
 
-            RecordingGridPage()
+            GeneratedStudyPage()
                 .tag(2)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
@@ -42,6 +42,9 @@ struct ContentView: View {
 
 private struct RecordingGridPage: View {
     private let recordings = ["7394", "7398", "7400", "7401", "7403", "7406"]
+    @Namespace private var recordingTransition
+    @State private var selectedRecording: String?
+    @State private var expandedDragOffset: CGFloat = 0
 
     var body: some View {
         GeometryReader { proxy in
@@ -52,21 +55,62 @@ private struct RecordingGridPage: View {
             let stageHeight = max(1, proxy.size.height - topInset - bottomInset)
             let recordingHeight = max(1, (stageHeight - 24) / 3)
 
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), spacing: 12),
-                    GridItem(.flexible(), spacing: 12),
-                ],
-                spacing: 12
-            ) {
-                ForEach(recordings, id: \.self) { recording in
+            ZStack {
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), spacing: 12),
+                        GridItem(.flexible(), spacing: 12),
+                    ],
+                    spacing: 12
+                ) {
+                    ForEach(recordings, id: \.self) { recording in
+                        Button {
+                            open(recording)
+                        } label: {
+                            LoopingVideoView(
+                                resource: "study-\(recording)",
+                                fileExtension: "mp4"
+                            )
+                            .frame(height: recordingHeight)
+                            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                            .matchedGeometryEffect(
+                                id: recording,
+                                in: recordingTransition,
+                                isSource: true
+                            )
+                            .opacity(selectedRecording == recording ? 0 : 1)
+                            .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                        }
+                        .buttonStyle(FluidThumbnailButtonStyle())
+                        .accessibilityLabel("Open grass study recording IMG_\(recording)")
+                    }
+                }
+                .frame(width: stageWidth, height: stageHeight)
+
+                if let selectedRecording {
                     LoopingVideoView(
-                        resource: "study-\(recording)",
+                        resource: "study-\(selectedRecording)",
                         fileExtension: "mp4"
                     )
-                    .frame(height: recordingHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                    .accessibilityLabel("Grass study recording IMG_\(recording)")
+                    .frame(width: stageWidth, height: stageHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .matchedGeometryEffect(
+                        id: selectedRecording,
+                        in: recordingTransition,
+                        isSource: false
+                    )
+                    .offset(y: expandedDragOffset)
+                    .shadow(
+                        color: .black.opacity(0.12 * dragProgress),
+                        radius: 22,
+                        y: 10
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .onTapGesture(perform: close)
+                    .gesture(dismissGesture)
+                    .accessibilityLabel("Grass study recording IMG_\(selectedRecording). Tap or swipe down to close.")
+                    .accessibilityAddTraits(.isModal)
+                    .zIndex(1)
                 }
             }
             .frame(width: stageWidth, height: stageHeight)
@@ -77,6 +121,40 @@ private struct RecordingGridPage: View {
             )
         }
         .background(Color.white)
+    }
+
+    private var dragProgress: Double {
+        max(0, min(1, Double(expandedDragOffset / 180)))
+    }
+
+    private var dismissGesture: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { value in
+                expandedDragOffset = max(0, value.translation.height)
+            }
+            .onEnded { value in
+                if value.translation.height > 70 || value.predictedEndTranslation.height > 150 {
+                    close()
+                } else {
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.74)) {
+                        expandedDragOffset = 0
+                    }
+                }
+            }
+    }
+
+    private func open(_ recording: String) {
+        expandedDragOffset = 0
+        withAnimation(.spring(response: 0.48, dampingFraction: 0.82)) {
+            selectedRecording = recording
+        }
+    }
+
+    private func close() {
+        withAnimation(.spring(response: 0.46, dampingFraction: 0.8)) {
+            expandedDragOffset = 0
+            selectedRecording = nil
+        }
     }
 }
 
