@@ -54,12 +54,30 @@ body {
 }
 
 .recording-grid-item {
+  position: relative;
+  display: block;
   min-width: 0;
   min-height: 0;
+  padding: 0;
   margin: 0;
   overflow: hidden;
+  border: 0;
   border-radius: clamp(9px, 1vw, 14px);
   background: #dcdcdc;
+  box-shadow: none;
+  cursor: grab;
+  touch-action: none;
+  transform-origin: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.recording-grid-item:active {
+  cursor: grabbing;
+}
+
+.recording-grid-item:focus-visible {
+  outline: 2px solid rgb(19 22 18 / 76%);
+  outline-offset: 3px;
 }
 
 .recording-grid-video {
@@ -67,6 +85,44 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+}
+
+.recording-overlay-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.recording-overlay-card {
+  position: fixed;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  background: #001e08;
+  box-shadow:
+    0 30px 90px rgb(13 22 12 / 18%),
+    0 8px 28px rgb(13 22 12 / 11%);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  will-change: transform, width, height, border-radius;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.recording-overlay-card:active {
+  cursor: grabbing;
+}
+
+.recording-overlay-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
 }
 
 .generated-stage-shell {

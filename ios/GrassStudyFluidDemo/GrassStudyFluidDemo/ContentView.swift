@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Wave
 
 private struct StudyAsset: Identifiable {
     enum Kind { case video, image }
@@ -42,20 +43,13 @@ struct ContentView: View {
 
 private struct RecordingGridPage: View {
     private let recordings = ["7394", "7398", "7400", "7401", "7403", "7406"]
-    @StateObject private var transition = RetargetableProgressSpring()
-    @StateObject private var dragOffsetX = RetargetableProgressSpring(
-        allowedRange: nil
-    )
-    @StateObject private var dragOffsetY = RetargetableProgressSpring(
-        allowedRange: nil
-    )
-    @StateObject private var dragScale = RetargetableProgressSpring(
-        initialValue: 1,
-        allowedRange: 0.86...1
-    )
+    @StateObject private var motion = WaveArtifactMotion()
     @State private var selectedRecording: String?
     @State private var selectedSourceFrame: CGRect?
     @State private var isDragging = false
+    @State private var dragStartFrame: CGRect = .zero
+    @State private var dragStartRadius: CGFloat = 28
+    @State private var flightID = 0
 
     var body: some View {
         GeometryReader { proxy in
@@ -65,12 +59,15 @@ private struct RecordingGridPage: View {
             let stageWidth = max(1, proxy.size.width - horizontalInset * 2)
             let stageHeight = max(1, proxy.size.height - topInset - bottomInset)
             let recordingHeight = max(1, (stageHeight - 24) / 3)
-            let targetFrame = CGRect(
+            let expandedFrame = CGRect(
                 x: 0,
                 y: 0,
                 width: stageWidth,
                 height: stageHeight
             )
+            let isReturningToSource = selectedSourceFrame.map {
+                motion.isTargeting($0)
+            } ?? false
 
             ZStack {
                 LazyVGrid(
@@ -87,7 +84,8 @@ private struct RecordingGridPage: View {
                                     recording,
                                     sourceFrame: itemProxy.frame(
                                         in: .named("recording-stage")
-                                    )
+                                    ),
+                                    expandedFrame: expandedFrame
                                 )
                             } label: {
                                 ZStack {
@@ -114,8 +112,7 @@ private struct RecordingGridPage: View {
                                     )
                                 )
                             }
-                            .frame(maxWidth: .infinity)
-                            .frame(maxHeight: .infinity)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .opacity(selectedRecording == recording ? 0 : 1)
                             .buttonStyle(FluidThumbnailButtonStyle())
                             .accessibilityLabel("Open grass study recording IMG_\(recording)")
@@ -124,56 +121,42 @@ private struct RecordingGridPage: View {
                     }
                 }
                 .frame(width: stageWidth, height: stageHeight)
-                .allowsHitTesting(selectedRecording == nil)
 
-                if let selectedRecording,
-                   let sourceFrame = selectedSourceFrame {
-                    let progress = clamped(transition.value)
-                    let visualFrame = interpolatedFrame(
-                        from: sourceFrame,
-                        to: targetFrame,
-                        progress: progress
-                    )
-                    let visualRadius = interpolatedValue(
-                        from: 15,
-                        to: 28,
-                        progress: progress
-                    )
-                    let scale = dragScale.value
-
+                if let selectedRecording {
                     LoopingVideoView(
                         resource: "study-\(selectedRecording)",
                         fileExtension: "mp4"
                     )
                     .frame(
-                        width: visualFrame.width * scale,
-                        height: visualFrame.height * scale
+                        width: max(1, motion.frame.width),
+                        height: max(1, motion.frame.height)
                     )
                     .clipShape(
                         RoundedRectangle(
-                            cornerRadius: visualRadius,
+                            cornerRadius: motion.cornerRadius,
                             style: .continuous
                         )
                     )
-                    .position(
-                        x: visualFrame.midX + dragOffsetX.value,
-                        y: visualFrame.midY + dragOffsetY.value
-                    )
-                    .shadow(
-                        color: .black.opacity(0.13 * Double(progress)),
-                        radius: 20 * progress,
-                        y: 8 * progress
-                    )
+                    .position(x: motion.frame.midX, y: motion.frame.midY)
+                    .shadow(color: .black.opacity(0.13), radius: 20, y: 8)
                     .contentShape(
                         RoundedRectangle(
-                            cornerRadius: visualRadius,
+                            cornerRadius: motion.cornerRadius,
                             style: .continuous
                         )
                     )
-                    .onTapGesture(perform: togglePresentation)
-                    .highPriorityGesture(dismissGesture(stageHeight: stageHeight))
+                    .onTapGesture {
+                        togglePresentation(expandedFrame: expandedFrame)
+                    }
+                    .highPriorityGesture(
+                        dismissGesture(
+                            stageHeight: stageHeight,
+                            expandedFrame: expandedFrame
+                        )
+                    )
                     .accessibilityLabel("Grass study recording IMG_\(selectedRecording). Tap or swipe down to close.")
                     .accessibilityAddTraits(.isModal)
+                    .allowsHitTesting(!isReturningToSource)
                     .zIndex(100)
                 }
             }
@@ -188,7 +171,10 @@ private struct RecordingGridPage: View {
         .background(Color.white)
     }
 
-    private func dismissGesture(stageHeight: CGFloat) -> some Gesture {
+    private func dismissGesture(
+        stageHeight: CGFloat,
+        expandedFrame: CGRect
+    ) -> some Gesture {
         DragGesture(minimumDistance: 8)
             .onChanged { value in
                 let distance = max(0, value.translation.height)
@@ -196,240 +182,229 @@ private struct RecordingGridPage: View {
 
                 if !isDragging {
                     isDragging = true
-                    transition.beginInteraction()
-                    dragOffsetX.beginInteraction()
-                    dragOffsetY.beginInteraction()
-                    dragScale.beginInteraction()
+                    dragStartFrame = motion.frame
+                    dragStartRadius = motion.cornerRadius
+                    motion.beginInteraction()
                 }
-
-                dragOffsetX.setInteractive(value.translation.width)
-                dragOffsetY.setInteractive(distance)
 
                 let compressionProgress = min(
                     1,
                     distance / max(1, stageHeight * 0.32)
                 )
-                dragScale.setInteractive(1 - compressionProgress * 0.08)
+                let scale = 1 - compressionProgress * 0.08
+                let size = CGSize(
+                    width: dragStartFrame.width * scale,
+                    height: dragStartFrame.height * scale
+                )
+                let center = CGPoint(
+                    x: dragStartFrame.midX + value.translation.width,
+                    y: dragStartFrame.midY + distance
+                )
+                motion.setInteractive(
+                    frame: CGRect(
+                        x: center.x - size.width / 2,
+                        y: center.y - size.height / 2,
+                        width: size.width,
+                        height: size.height
+                    ),
+                    cornerRadius: dragStartRadius - compressionProgress * 4
+                )
             }
             .onEnded { value in
                 guard isDragging else { return }
                 isDragging = false
 
-                let dismissalDistance = max(1, stageHeight * 0.3)
                 let projectionDuration: CGFloat = 0.2
-                let projectedTravel = max(
+                let releaseVelocityY = max(
                     0,
                     value.predictedEndTranslation.height
                         - value.translation.height
-                )
-                let releaseVelocityY = projectedTravel / projectionDuration
+                ) / projectionDuration
                 let releaseVelocityX = (
                     value.predictedEndTranslation.width
                         - value.translation.width
                 ) / projectionDuration
-                let releaseVelocity = -releaseVelocityY
-                    / dismissalDistance
                 let shouldClose = value.translation.height > stageHeight * 0.12
-                    || releaseVelocity < -0.72
-
-                dragOffsetX.retarget(
-                    to: 0,
-                    releaseVelocity: releaseVelocityX
-                )
-                dragOffsetY.retarget(
-                    to: 0,
-                    releaseVelocity: releaseVelocityY
-                )
-                dragScale.retarget(
-                    to: 1,
-                    releaseVelocity: releaseVelocity * 0.08
+                    || releaseVelocityY / max(1, stageHeight * 0.3) > 0.72
+                let frameVelocity = gestureFrameVelocity(
+                    x: releaseVelocityX,
+                    y: releaseVelocityY,
+                    stageHeight: stageHeight
                 )
 
                 if shouldClose {
-                    close(releaseVelocity: releaseVelocity)
+                    close(frameVelocity: frameVelocity)
                 } else {
-                    transition.retarget(
-                        to: 1,
-                        releaseVelocity: releaseVelocity
+                    flightID += 1
+                    motion.retarget(
+                        frame: expandedFrame,
+                        cornerRadius: 28,
+                        frameVelocity: frameVelocity,
+                        radiusVelocity: -releaseVelocityY * 0.01
                     )
                 }
             }
     }
 
-    private func open(_ recording: String, sourceFrame: CGRect) {
+    private func open(
+        _ recording: String,
+        sourceFrame: CGRect,
+        expandedFrame: CGRect
+    ) {
+        flightID += 1
+        if selectedRecording == nil {
+            motion.jump(frame: sourceFrame, cornerRadius: 15)
+        }
         selectedSourceFrame = sourceFrame
         selectedRecording = recording
-        dragOffsetX.jump(to: 0)
-        dragOffsetY.jump(to: 0)
-        dragScale.jump(to: 1)
-        transition.jump(to: 0)
-        DispatchQueue.main.async {
-            transition.retarget(to: 1)
-        }
+        isDragging = false
+        motion.retarget(frame: expandedFrame, cornerRadius: 28)
     }
 
-    private func togglePresentation() {
-        settleDirectManipulation()
-        if transition.target > 0.5 {
+    private func togglePresentation(expandedFrame: CGRect) {
+        guard let selectedSourceFrame else { return }
+        if motion.isTargeting(selectedSourceFrame) {
+            flightID += 1
+            motion.retarget(frame: expandedFrame, cornerRadius: 28)
+        } else {
             close()
-        } else {
-            transition.retarget(to: 1)
         }
     }
 
-    private func close(releaseVelocity: CGFloat? = nil) {
-        transition.retarget(to: 0, releaseVelocity: releaseVelocity) {
-            dragOffsetX.jump(to: 0)
-            dragOffsetY.jump(to: 0)
-            dragScale.jump(to: 1)
-            selectedRecording = nil
-            selectedSourceFrame = nil
-        }
-    }
-
-    private func settleDirectManipulation() {
-        dragOffsetX.retarget(to: 0)
-        dragOffsetY.retarget(to: 0)
-        dragScale.retarget(to: 1)
-    }
-}
-
-private func clamped(_ value: CGFloat) -> CGFloat {
-    min(1, max(0, value))
-}
-
-private func interpolatedValue(
-    from: CGFloat,
-    to: CGFloat,
-    progress: CGFloat
-) -> CGFloat {
-    from + (to - from) * progress
-}
-
-private func interpolatedFrame(
-    from: CGRect,
-    to: CGRect,
-    progress: CGFloat
-) -> CGRect {
-    CGRect(
-        x: interpolatedValue(from: from.minX, to: to.minX, progress: progress),
-        y: interpolatedValue(from: from.minY, to: to.minY, progress: progress),
-        width: interpolatedValue(from: from.width, to: to.width, progress: progress),
-        height: interpolatedValue(from: from.height, to: to.height, progress: progress)
-    )
-}
-
-private final class RetargetableProgressSpring: NSObject, ObservableObject {
-    @Published private(set) var value: CGFloat
-    private(set) var target: CGFloat
-
-    private let stiffness: CGFloat = 300
-    private let damping: CGFloat = 35
-    private let mass: CGFloat = 1
-    private let allowedRange: ClosedRange<CGFloat>?
-    private var velocity: CGFloat = 0
-    private var displayLink: CADisplayLink?
-    private var lastTimestamp: CFTimeInterval?
-    private var completion: (() -> Void)?
-
-    init(
-        initialValue: CGFloat = 0,
-        allowedRange: ClosedRange<CGFloat>? = 0...1
-    ) {
-        let constrainedValue: CGFloat
-        if let allowedRange {
-            constrainedValue = min(
-                allowedRange.upperBound,
-                max(allowedRange.lowerBound, initialValue)
-            )
-        } else {
-            constrainedValue = initialValue
-        }
-
-        value = constrainedValue
-        target = constrainedValue
-        self.allowedRange = allowedRange
-        super.init()
-    }
-
-    func jump(to value: CGFloat) {
-        stopAnimation()
-        let nextValue = constrained(value)
-        self.value = nextValue
-        target = nextValue
-        velocity = 0
-    }
-
-    func beginInteraction() {
-        stopAnimation()
-    }
-
-    func setInteractive(_ value: CGFloat) {
-        self.value = constrained(value)
-        target = self.value
-        velocity = 0
-    }
-
-    func retarget(
-        to target: CGFloat,
-        releaseVelocity: CGFloat? = nil,
-        completion: (() -> Void)? = nil
-    ) {
-        self.completion = completion
-        self.target = constrained(target)
-        if let releaseVelocity {
-            velocity = releaseVelocity
-        }
-
-        if displayLink == nil {
-            let displayLink = CADisplayLink(target: self, selector: #selector(step(_:)))
-            displayLink.preferredFrameRateRange = CAFrameRateRange(
-                minimum: 60,
-                maximum: 120,
-                preferred: 120
-            )
-            displayLink.add(to: .main, forMode: .common)
-            self.displayLink = displayLink
-        }
-    }
-
-    private func stopAnimation() {
-        completion = nil
-        displayLink?.invalidate()
-        displayLink = nil
-        lastTimestamp = nil
-    }
-
-    private func constrained(_ value: CGFloat) -> CGFloat {
-        guard let allowedRange else { return value }
-        return min(
-            allowedRange.upperBound,
-            max(allowedRange.lowerBound, value)
+    private func close(frameVelocity: CGRect? = nil) {
+        guard let selectedSourceFrame else { return }
+        flightID += 1
+        let closingFlightID = flightID
+        motion.retarget(
+            frame: selectedSourceFrame,
+            cornerRadius: 15,
+            frameVelocity: frameVelocity,
+            completion: {
+                guard closingFlightID == flightID else { return }
+                selectedRecording = nil
+                self.selectedSourceFrame = nil
+            }
         )
     }
 
-    @objc private func step(_ displayLink: CADisplayLink) {
-        let timestamp = displayLink.timestamp
-        let deltaTime = lastTimestamp.map { timestamp - $0 } ?? (1 / 120)
-        lastTimestamp = timestamp
-        let dt = CGFloat(min(max(deltaTime, 1 / 240), 1 / 30))
-        let displacement = value - target
-        let acceleration = (
-            -stiffness * displacement - damping * velocity
-        ) / mass
+    private func gestureFrameVelocity(
+        x: CGFloat,
+        y: CGFloat,
+        stageHeight: CGFloat
+    ) -> CGRect {
+        let compressionRange = max(1, stageHeight * 0.32)
+        let scaleVelocity = -0.08 * y / compressionRange
+        let widthVelocity = dragStartFrame.width * scaleVelocity
+        let heightVelocity = dragStartFrame.height * scaleVelocity
+        return CGRect(
+            x: x - widthVelocity / 2,
+            y: y - heightVelocity / 2,
+            width: widthVelocity,
+            height: heightVelocity
+        )
+    }
+}
 
-        velocity += acceleration * dt
-        value += velocity * dt
+private final class WaveArtifactMotion: ObservableObject {
+    @Published private(set) var frame: CGRect = .zero
+    @Published private(set) var cornerRadius: CGFloat = 15
 
-        guard abs(value - target) < 0.0001,
-              abs(velocity) < 0.0001
-        else { return }
+    private let frameAnimator: SpringAnimator<CGRect>
+    private let radiusAnimator: SpringAnimator<CGFloat>
+    private var pendingCompletion: (() -> Void)?
 
-        value = target
-        velocity = 0
-        let completion = self.completion
-        stopAnimation()
-        completion?()
+    init() {
+        let spring = Spring(dampingRatio: 0.82, response: 0.44)
+        frameAnimator = SpringAnimator<CGRect>(spring: spring)
+        radiusAnimator = SpringAnimator<CGFloat>(spring: spring)
+        installFrameCompletionHandler()
+
+        frameAnimator.valueChanged = { [weak self] value in
+            self?.frame = value
+        }
+        radiusAnimator.valueChanged = { [weak self] value in
+            self?.cornerRadius = value
+        }
+    }
+
+    func jump(frame: CGRect, cornerRadius: CGFloat) {
+        pendingCompletion = nil
+        stopAnimators()
+        frameAnimator.value = frame
+        frameAnimator.target = frame
+        frameAnimator.velocity = .zero
+        radiusAnimator.value = cornerRadius
+        radiusAnimator.target = cornerRadius
+        radiusAnimator.velocity = .zero
+        self.frame = frame
+        self.cornerRadius = cornerRadius
+    }
+
+    func beginInteraction() {
+        pendingCompletion = nil
+        stopAnimators()
+    }
+
+    func setInteractive(frame: CGRect, cornerRadius: CGFloat) {
+        frameAnimator.value = frame
+        frameAnimator.target = frame
+        frameAnimator.velocity = .zero
+        radiusAnimator.value = cornerRadius
+        radiusAnimator.target = cornerRadius
+        radiusAnimator.velocity = .zero
+        self.frame = frame
+        self.cornerRadius = cornerRadius
+    }
+
+    func retarget(
+        frame: CGRect,
+        cornerRadius: CGFloat,
+        frameVelocity: CGRect? = nil,
+        radiusVelocity: CGFloat? = nil,
+        completion: (() -> Void)? = nil
+    ) {
+        pendingCompletion = completion
+        if let frameVelocity {
+            frameAnimator.velocity = frameVelocity
+        }
+        if let radiusVelocity {
+            radiusAnimator.velocity = radiusVelocity
+        }
+
+        frameAnimator.target = frame
+        radiusAnimator.target = cornerRadius
+
+        if frameAnimator.state != .running {
+            frameAnimator.start()
+        }
+        if radiusAnimator.state != .running {
+            radiusAnimator.start()
+        }
+    }
+
+    func isTargeting(_ frame: CGRect) -> Bool {
+        guard let target = frameAnimator.target else { return false }
+        return abs(target.minX - frame.minX) < 0.5
+            && abs(target.minY - frame.minY) < 0.5
+            && abs(target.width - frame.width) < 0.5
+            && abs(target.height - frame.height) < 0.5
+    }
+
+    private func stopAnimators() {
+        frameAnimator.completion = nil
+        radiusAnimator.completion = nil
+        frameAnimator.stop()
+        radiusAnimator.stop()
+        installFrameCompletionHandler()
+    }
+
+    private func installFrameCompletionHandler() {
+        frameAnimator.completion = { [weak self] event in
+            guard case .finished = event else { return }
+            let completion = self?.pendingCompletion
+            self?.pendingCompletion = nil
+            completion?()
+        }
     }
 }
 

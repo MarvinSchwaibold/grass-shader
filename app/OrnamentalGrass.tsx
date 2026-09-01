@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { motion, useMotionValueEvent, useSpring } from "motion/react";
 
 const WIND_MIN = .35;
 const WIND_MAX = 3.6;
@@ -61,6 +68,41 @@ const REFERENCE_MEDIA: ReferenceMedia[] = [
 ];
 
 const STUDY_RECORDINGS = ["7394", "7398", "7400", "7401", "7403", "7406"];
+
+type RecordingFrame = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  radius: number;
+};
+
+type RecordingOverlayPhase = "idle" | "opening" | "open" | "dragging" | "closing";
+
+type GridPull = {
+  index: number;
+  deltaX: number;
+  deltaY: number;
+  progress: number;
+};
+
+const RECORDING_SPRING = {
+  stiffness: 410,
+  damping: 34,
+  mass: .92,
+  restDelta: .22,
+  restSpeed: 2.2,
+};
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function rubberBandDistance(distance: number, dimension: number) {
+  if (distance <= 0) return distance * .18;
+  const safeDimension = Math.max(dimension, 1);
+  return (distance * .72) / (1 + distance / (safeDimension * .72));
+}
 
 const grassVertex = `#version 300 es
 precision highp float;
@@ -931,6 +973,416 @@ function start(
   };
 }
 
+function RecordingGridExperience() {
+  const tileRefs = useRef(new Map<number, HTMLButtonElement>());
+  const tileGesture = useRef({
+    pointerId: -1,
+    index: -1,
+    startX: 0,
+    startY: 0,
+    axis: "pending" as "pending" | "vertical" | "horizontal",
+  });
+  const overlayGesture = useRef({
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    originX: .5,
+    originY: .5,
+    frame: null as RecordingFrame | null,
+    axis: "pending" as "pending" | "vertical" | "horizontal",
+    samples: [] as Array<{ x: number; y: number; time: number }>,
+  });
+  const sourceFrame = useRef<RecordingFrame | null>(null);
+  const overlayPhaseRef = useRef<RecordingOverlayPhase>("idle");
+  const [overlayPhase, setOverlayPhaseState] = useState<RecordingOverlayPhase>("idle");
+  const [overlayRecording, setOverlayRecording] = useState<string | null>(null);
+  const [gridPull, setGridPull] = useState<GridPull | null>(null);
+
+  const overlayX = useSpring(0, RECORDING_SPRING);
+  const overlayY = useSpring(0, RECORDING_SPRING);
+  const overlayWidth = useSpring(1, RECORDING_SPRING);
+  const overlayHeight = useSpring(1, RECORDING_SPRING);
+  const overlayRadius = useSpring(14, RECORDING_SPRING);
+
+  const setOverlayPhase = (phase: RecordingOverlayPhase) => {
+    overlayPhaseRef.current = phase;
+    setOverlayPhaseState(phase);
+  };
+
+  const frameFromRect = (rect: DOMRect, radius = 14): RecordingFrame => ({
+    x: rect.left,
+    y: rect.top,
+    width: rect.width,
+    height: rect.height,
+    radius,
+  });
+
+  const destinationFrame = () => {
+    const destination = document.querySelector<HTMLElement>(".reference-stage");
+    if (destination) return frameFromRect(destination.getBoundingClientRect(), 12);
+    const height = Math.min(window.innerHeight - 72, 920);
+    const width = height * (832 / 1492);
+    return {
+      x: (window.innerWidth - width) / 2,
+      y: (window.innerHeight - height) / 2,
+      width,
+      height,
+      radius: 12,
+    };
+  };
+
+  const currentFrame = (): RecordingFrame => ({
+    x: overlayX.get(),
+    y: overlayY.get(),
+    width: overlayWidth.get(),
+    height: overlayHeight.get(),
+    radius: overlayRadius.get(),
+  });
+
+  const jumpToFrame = (frame: RecordingFrame) => {
+    overlayX.jump(frame.x);
+    overlayY.jump(frame.y);
+    overlayWidth.jump(frame.width);
+    overlayHeight.jump(frame.height);
+    overlayRadius.jump(frame.radius);
+  };
+
+  const seedReleaseVelocity = (velocityX: number, velocityY: number) => {
+    const frame = currentFrame();
+    const frameDelta = 1000 / 60;
+    overlayX.setWithVelocity(frame.x - velocityX / 60, frame.x, frameDelta);
+    overlayY.setWithVelocity(frame.y - velocityY / 60, frame.y, frameDelta);
+  };
+
+  const retargetToFrame = (frame: RecordingFrame) => {
+    overlayX.set(frame.x);
+    overlayY.set(frame.y);
+    overlayWidth.set(frame.width);
+    overlayHeight.set(frame.height);
+    overlayRadius.set(frame.radius);
+  };
+
+  const openRecording = (recording: string, index: number) => {
+    const tile = tileRefs.current.get(index);
+    if (!tile) return;
+    sourceFrame.current = frameFromRect(tile.getBoundingClientRect(), 14);
+    setOverlayRecording(recording);
+
+    if (overlayPhaseRef.current === "idle") {
+      jumpToFrame(sourceFrame.current);
+      setOverlayPhase("opening");
+      requestAnimationFrame(() => retargetToFrame(destinationFrame()));
+      return;
+    }
+
+    // This is the key retargeting path: the same live springs keep their
+    // current velocity while their destination and content change.
+    setOverlayPhase("opening");
+    retargetToFrame(destinationFrame());
+  };
+
+  const closeOverlay = (velocityX = 0, velocityY = 0) => {
+    if (!sourceFrame.current || overlayPhaseRef.current === "idle") return;
+    setOverlayPhase("closing");
+    seedReleaseVelocity(velocityX, velocityY);
+    retargetToFrame(sourceFrame.current);
+  };
+
+  const springOverlayOpen = (velocityX = 0, velocityY = 0) => {
+    setOverlayPhase("opening");
+    seedReleaseVelocity(velocityX, velocityY);
+    retargetToFrame(destinationFrame());
+  };
+
+  useMotionValueEvent(overlayX, "animationComplete", () => {
+    if (overlayPhaseRef.current === "closing" && sourceFrame.current) {
+      const source = sourceFrame.current;
+      if (
+        Math.abs(overlayX.get() - source.x) < 1
+        && Math.abs(overlayY.get() - source.y) < 1
+        && Math.abs(overlayWidth.get() - source.width) < 1
+      ) {
+        setOverlayPhase("idle");
+        setOverlayRecording(null);
+      }
+      return;
+    }
+    if (overlayPhaseRef.current === "opening") setOverlayPhase("open");
+  });
+
+  useEffect(() => {
+    const onResize = () => {
+      if (
+        overlayPhaseRef.current === "open"
+        || overlayPhaseRef.current === "opening"
+      ) retargetToFrame(destinationFrame());
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeOverlay();
+    };
+    window.addEventListener("resize", onResize);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  });
+
+  const onTilePointerDown = (
+    index: number,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
+    if (event.button !== 0) return;
+    tileGesture.current = {
+      pointerId: event.pointerId,
+      index,
+      startX: event.clientX,
+      startY: event.clientY,
+      axis: "pending",
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onTilePointerMove = (
+    index: number,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
+    const gesture = tileGesture.current;
+    if (gesture.pointerId !== event.pointerId || gesture.index !== index) return;
+    const deltaX = event.clientX - gesture.startX;
+    const deltaY = event.clientY - gesture.startY;
+
+    // Fluid Bookshelf intent rule: a clear five-pixel downward component owns
+    // the gesture even when the diagonal motion is horizontally dominant.
+    if (deltaY >= 5) gesture.axis = "vertical";
+    else if (gesture.axis === "pending" && Math.abs(deltaX) >= 10) {
+      gesture.axis = "horizontal";
+    }
+    if (gesture.axis !== "vertical") return;
+
+    const resistedY = rubberBandDistance(deltaY, window.innerHeight);
+    setGridPull({
+      index,
+      deltaX: deltaX * .22,
+      deltaY: resistedY,
+      progress: clamp01(deltaY / Math.max(window.innerHeight * .28, 1)),
+    });
+  };
+
+  const finishTileGesture = (
+    recording: string,
+    index: number,
+    event: ReactPointerEvent<HTMLButtonElement>,
+    cancelled = false,
+  ) => {
+    const gesture = tileGesture.current;
+    if (gesture.pointerId !== event.pointerId || gesture.index !== index) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    const wasPulling = gesture.axis === "vertical";
+    const wasHorizontal = gesture.axis === "horizontal";
+    tileGesture.current.pointerId = -1;
+    tileGesture.current.index = -1;
+    tileGesture.current.axis = "pending";
+    setGridPull(null);
+    if (!cancelled && !wasPulling && !wasHorizontal) openRecording(recording, index);
+  };
+
+  const onOverlayPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || overlayPhaseRef.current === "closing") return;
+    const frame = currentFrame();
+    overlayGesture.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: clamp01((event.clientX - frame.x) / Math.max(frame.width, 1)),
+      originY: clamp01((event.clientY - frame.y) / Math.max(frame.height, 1)),
+      frame,
+      axis: "pending",
+      samples: [{ x: event.clientX, y: event.clientY, time: performance.now() }],
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onOverlayPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const gesture = overlayGesture.current;
+    if (gesture.pointerId !== event.pointerId || !gesture.frame) return;
+    const deltaX = event.clientX - gesture.startX;
+    const deltaY = event.clientY - gesture.startY;
+    const now = performance.now();
+    gesture.samples.push({ x: event.clientX, y: event.clientY, time: now });
+    while (gesture.samples.length > 2 && now - gesture.samples[0].time > 100) {
+      gesture.samples.shift();
+    }
+
+    if (deltaY >= 5) gesture.axis = "vertical";
+    else if (gesture.axis === "pending" && Math.abs(deltaX) >= 10) {
+      gesture.axis = "horizontal";
+    }
+    if (gesture.axis !== "vertical") return;
+    if (overlayPhaseRef.current !== "dragging") setOverlayPhase("dragging");
+
+    const positiveY = Math.max(0, deltaY);
+    const progress = clamp01(positiveY / Math.max(window.innerHeight * .46, 1));
+    const resistedY = rubberBandDistance(deltaY, window.innerHeight);
+    const scale = 1 - progress * .14;
+    const width = gesture.frame.width * scale;
+    const height = gesture.frame.height * scale;
+    overlayX.jump(
+      gesture.frame.x
+        + deltaX * .34
+        + (gesture.frame.width - width) * gesture.originX,
+    );
+    overlayY.jump(
+      gesture.frame.y
+        + resistedY
+        + (gesture.frame.height - height) * gesture.originY,
+    );
+    overlayWidth.jump(width);
+    overlayHeight.jump(height);
+    overlayRadius.jump(12 + progress * 8);
+  };
+
+  const finishOverlayGesture = (
+    event: ReactPointerEvent<HTMLDivElement>,
+    cancelled = false,
+  ) => {
+    const gesture = overlayGesture.current;
+    if (gesture.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    const samples = gesture.samples;
+    const first = samples[0];
+    const last = samples[samples.length - 1];
+    const elapsed = Math.max((last?.time ?? 0) - (first?.time ?? 0), 1);
+    const velocityX = first && last ? (last.x - first.x) / elapsed * 1000 : 0;
+    let velocityY = first && last ? (last.y - first.y) / elapsed * 1000 : 0;
+    const distance = (last?.y ?? gesture.startY) - gesture.startY;
+    const progress = clamp01(distance / Math.max(window.innerHeight * .46, 1));
+    const releaseCharge = clamp01((progress - .6) / .25);
+    velocityY *= 1 + releaseCharge * .45;
+    const shouldClose = !cancelled
+      && gesture.axis === "vertical"
+      && (distance > window.innerHeight * .16 || velocityY > 560);
+    const wasTap = !cancelled && gesture.axis === "pending";
+
+    overlayGesture.current.pointerId = -1;
+    overlayGesture.current.frame = null;
+    overlayGesture.current.samples = [];
+    overlayGesture.current.axis = "pending";
+
+    if (wasTap || shouldClose) closeOverlay(velocityX * .34, Math.max(velocityY, 0));
+    else springOverlayOpen(velocityX * .2, velocityY * .25);
+  };
+
+  const tileMotion = (index: number) => {
+    if (!gridPull) return { x: 0, y: 0, scale: 1, zIndex: 0 };
+    const distance = Math.abs(index - gridPull.index);
+    if (index === gridPull.index) {
+      const compression = .058 * (1 - Math.exp(-gridPull.deltaY / 110));
+      return {
+        x: gridPull.deltaX,
+        y: gridPull.deltaY,
+        scale: 1 - compression,
+        zIndex: 6,
+      };
+    }
+    const ripple = Math.exp(-distance * .88) * gridPull.progress;
+    return {
+      x: 0,
+      y: gridPull.deltaY * ripple * .13,
+      scale: 1 - ripple * .014,
+      zIndex: Math.max(0, 5 - distance),
+    };
+  };
+
+  return (
+    <section
+      className="recording-grid-experience"
+      aria-label="Six original grass study recordings"
+    >
+      <div className="grass-stage recording-grid-stage">
+        {STUDY_RECORDINGS.map((recording, index) => {
+          const movement = tileMotion(index);
+          return (
+            <motion.button
+              ref={(node) => {
+                if (node) tileRefs.current.set(index, node);
+                else tileRefs.current.delete(index);
+              }}
+              className="recording-grid-item"
+              type="button"
+              key={recording}
+              aria-label={`Open grass study recording IMG_${recording}`}
+              animate={movement}
+              transition={gridPull
+                ? { duration: 0 }
+                : { type: "spring", stiffness: 440, damping: 28, mass: .8 }}
+              onPointerDown={(event) => onTilePointerDown(index, event)}
+              onPointerMove={(event) => onTilePointerMove(index, event)}
+              onPointerUp={(event) => finishTileGesture(recording, index, event)}
+              onPointerCancel={(event) => finishTileGesture(recording, index, event, true)}
+              onClick={(event) => {
+                if (event.detail === 0) openRecording(recording, index);
+              }}
+            >
+              <video
+                className="recording-grid-video"
+                src={`/study-${recording}.mp4`}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                aria-hidden="true"
+              />
+              <span className="visually-hidden">
+                Grass study recording IMG_{recording}
+              </span>
+            </motion.button>
+          );
+        })}
+      </div>
+
+      {overlayRecording && overlayPhase !== "idle" ? (
+        <div className="recording-overlay-layer" aria-live="polite">
+          <motion.div
+            className="recording-overlay-card"
+            role="dialog"
+            aria-label={`Expanded grass study recording IMG_${overlayRecording}`}
+            aria-modal="false"
+            style={{
+              x: overlayX,
+              y: overlayY,
+              width: overlayWidth,
+              height: overlayHeight,
+              borderRadius: overlayRadius,
+              pointerEvents: overlayPhase === "closing" ? "none" : "auto",
+            }}
+            onPointerDown={onOverlayPointerDown}
+            onPointerMove={onOverlayPointerMove}
+            onPointerUp={(event) => finishOverlayGesture(event)}
+            onPointerCancel={(event) => finishOverlayGesture(event, true)}
+          >
+            <video
+              key={overlayRecording}
+              className="recording-overlay-video"
+              src={`/study-${overlayRecording}.mp4`}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+            />
+          </motion.div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function OrnamentalGrass() {
   const ref = useRef<HTMLCanvasElement>(null);
   const windAmount = useRef(windAmountFromStrength(DEFAULT_WIND_STRENGTH));
@@ -963,30 +1415,7 @@ export function OrnamentalGrass() {
   };
   return (
     <div className="grass-comparison">
-      <section
-        className="recording-grid-experience"
-        aria-label="Six original grass study recordings"
-      >
-        <div className="grass-stage recording-grid-stage">
-          {STUDY_RECORDINGS.map((recording) => (
-            <figure className="recording-grid-item" key={recording}>
-              <video
-                className="recording-grid-video"
-                src={`/study-${recording}.mp4`}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="auto"
-                aria-label={`Grass study recording IMG_${recording}`}
-              />
-              <figcaption className="visually-hidden">
-                Grass study recording IMG_{recording}
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      </section>
+      <RecordingGridExperience />
       <section className="grass-experience" aria-label="Generated grass simulation">
         <div className="generated-stage-shell">
           <figure className="grass-stage generated-stage">

@@ -22,6 +22,7 @@
 		10000000000000000000001E /* study-7401.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002F /* study-7401.mp4 */; };
 		10000000000000000000001F /* study-7403.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000034 /* study-7403.mp4 */; };
 		10000000000000000000003A /* study-7406.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000035 /* study-7406.mp4 */; };
+		10000000000000000000003B /* Wave in Frameworks */ = {isa = PBXBuildFile; productRef = 10000000000000000000003C /* Wave */; };
 
 		100000000000000000000020 /* GrassStudyFluidDemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrassStudyFluidDemoApp.swift; sourceTree = "<group>"; };
 		100000000000000000000021 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -100,7 +101,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		100000000000000000000041 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		100000000000000000000041 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (10000000000000000000003B /* Wave in Frameworks */,); runOnlyForDeploymentPostprocessing = 0; };
 		100000000000000000000042 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -133,6 +134,9 @@
 			buildRules = ();
 			dependencies = ();
 			name = GrassStudyFluidDemo;
+			packageProductDependencies = (
+				10000000000000000000003C /* Wave */,
+			);
 			productName = GrassStudyFluidDemo;
 			productReference = 10000000000000000000002A /* GrassStudyFluidDemo.app */;
 			productType = "com.apple.product-type.application";
@@ -153,6 +157,9 @@
 			knownRegions = (en, Base);
 			mainGroup = 100000000000000000000030;
 			productRefGroup = 100000000000000000000032 /* Products */;
+			packageReferences = (
+				10000000000000000000003D /* XCRemoteSwiftPackageReference "Wave" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (100000000000000000000050 /* GrassStudyFluidDemo */);
@@ -164,6 +171,7 @@
 			DEVELOPMENT_ASSET_PATHS = "";
 			GENERATE_INFOPLIST_FILE = YES;
 			INFOPLIST_KEY_CFBundleDisplayName = "Grass Study";
+			INFOPLIST_KEY_CADisableMinimumFrameDuration = YES;
 			INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 			INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 			INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -181,6 +189,7 @@
 			CURRENT_PROJECT_VERSION = 1;
 			GENERATE_INFOPLIST_FILE = YES;
 			INFOPLIST_KEY_CFBundleDisplayName = "Grass Study";
+			INFOPLIST_KEY_CADisableMinimumFrameDuration = YES;
 			INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 			INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 			INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -223,6 +232,19 @@
 
 		100000000000000000000060 /* Build configuration list for PBXNativeTarget */ = {isa = XCConfigurationList; buildConfigurations = (100000000000000000000070, 100000000000000000000071); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		100000000000000000000061 /* Build configuration list for PBXProject */ = {isa = XCConfigurationList; buildConfigurations = (100000000000000000000072, 100000000000000000000073); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		10000000000000000000003D /* XCRemoteSwiftPackageReference "Wave" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jtrivedi/Wave.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.3.4;
+			};
+		};
+		10000000000000000000003C /* Wave */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 10000000000000000000003D /* XCRemoteSwiftPackageReference "Wave" */;
+			productName = Wave;
+		};
 	};
 	rootObject = 100000000000000000000001 /* Project object */;
 }
