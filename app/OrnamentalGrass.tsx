@@ -141,7 +141,9 @@ void main() {
   float terrainLevel = terrainShape(aRoot.xz);
   float terrainX = terrainShape(aRoot.xz + vec2(0.16, 0.0));
   float terrainZ = terrainShape(aRoot.xz + vec2(0.0, 0.16));
-  float terrainStrength = mix(0.58, 0.43, secondStudy) * uTerrainDepth;
+  // DialKit's authored terrain value is 2.0. Zero removes all relief and
+  // values above 2.0 exaggerate the exact same height field.
+  float terrainStrength = mix(0.58, 0.43, secondStudy) * (uTerrainDepth * 0.5);
   float terrainY = (terrainLevel - 0.5) * terrainStrength;
   vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) * terrainStrength / 0.16;
   vec3 terrainNormal = normalize(vec3(-terrainGradient.x, 1.0, -terrainGradient.y));
@@ -267,18 +269,40 @@ void main() {
 const terrainVertex = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aTerrainUV;
+uniform sampler2D uTerrain;
+uniform float uTerrainDepth;
 out vec2 vTerrainUV;
+out float vTerrainLevel;
+
+float terrainShape(vec2 uv) {
+  vec3 sampleColor = textureLod(uTerrain, clamp(uv, 0.0, 1.0), 4.0).rgb;
+  float luminance = dot(sampleColor, vec3(0.2126, 0.7152, 0.0722));
+  return smoothstep(0.19, 0.76, luminance);
+}
 
 void main() {
   // Match object-fit: cover for the 367x652 authored map inside the
   // 832x1492 study frame. Only the tiny symmetric horizontal excess is cut.
   vTerrainUV = vec2(mix(0.00466, 0.99534, aTerrainUV.x), aTerrainUV.y);
-  gl_Position = vec4(aTerrainUV * 2.0 - 1.0, 0.0, 1.0);
+  vTerrainLevel = terrainShape(vTerrainUV);
+
+  // This is real height-field deformation of the tessellated terrain mesh.
+  // 0.0 is planar, 2.0 is the authored relief, and 4.0 is twice that relief.
+  float authoredDepth = uTerrainDepth * 0.5;
+  float height = (vTerrainLevel - 0.5) * authoredDepth;
+  vec2 clip = aTerrainUV * 2.0 - 1.0;
+
+  // A restrained oblique projection exposes the vertical extrusion while
+  // preserving the authored map's screen-space composition.
+  clip += vec2(-0.020, 0.085) * height;
+  float perspectiveW = 1.0 - height * 0.075;
+  gl_Position = vec4(clip, clamp(-height * 0.30, -0.9, 0.9), perspectiveW);
 }`;
 
 const terrainFragment = `#version 300 es
 precision highp float;
 in vec2 vTerrainUV;
+in float vTerrainLevel;
 uniform sampler2D uTerrain;
 uniform sampler2D uTerrainVisual;
 uniform float uTerrainDepth;
@@ -294,26 +318,22 @@ void main() {
   vec3 mapColor = texture(uTerrainVisual, vTerrainUV).rgb;
   ivec2 terrainSize = textureSize(uTerrain, 0);
   vec2 texel = 1.0 / vec2(max(terrainSize, ivec2(1)));
-  float level = terrainShape(vTerrainUV);
+  float level = vTerrainLevel;
   float levelX = terrainShape(vTerrainUV + vec2(texel.x * 2.0, 0.0));
   float levelY = terrainShape(vTerrainUV + vec2(0.0, texel.y * 2.0));
   vec2 gradient = vec2(levelX - level, levelY - level) / max(texel * 2.0, vec2(0.0001));
-  vec3 normal = normalize(vec3(-gradient.x * 0.018 * uTerrainDepth, 1.0,
-    -gradient.y * 0.018 * uTerrainDepth));
+  float authoredDepth = uTerrainDepth * 0.5;
+  vec3 normal = normalize(vec3(-gradient.x * 0.020 * authoredDepth, 1.0,
+    -gradient.y * 0.020 * authoredDepth));
   vec3 sun = normalize(vec3(-0.54, 0.78, 0.32));
   float direct = max(dot(normal, sun), 0.0);
 
-  // At the authored value of 1.0 this is the reference map pixel-for-pixel.
-  // Below 1.0 the baked relief is compressed toward a flat soil value; above
-  // 1.0 the same spatial map gains stronger hill-side lighting without a new
-  // crop, camera projection, or procedural mound layout.
-  float mapLuma = dot(mapColor, vec3(0.2126, 0.7152, 0.0722));
-  vec3 mapChroma = mapColor / max(mapLuma, 0.08);
-  vec3 flatColor = mapChroma * 0.54;
-  vec3 color = mix(flatColor, mapColor, min(uTerrainDepth, 1.0));
-  float extraDepth = clamp((uTerrainDepth - 1.0) / 3.0, 0.0, 1.0);
-  float reliefLight = 0.78 + direct * 0.34 + (level - 0.5) * 0.12;
-  color *= mix(1.0, reliefLight, extraDepth);
+  // Terrain Depth never fades or recolors the texture. It only changes mesh
+  // height and the physical normal produced by that height. A flat mesh has a
+  // neutral multiplier of exactly 1.0; raised slopes receive real relief light.
+  float flatDirect = sun.y;
+  float reliefLight = 1.0 + (direct - flatDirect) * (0.46 + authoredDepth * 0.10);
+  vec3 color = mapColor * clamp(reliefLight, 0.72, 1.28);
   outColor = vec4(color, 1.0);
 }`;
 
@@ -1528,26 +1548,31 @@ function RecordingGridExperience() {
 export function OrnamentalGrass() {
   const ref = useRef<HTMLCanvasElement>(null);
   const windAmount = useRef(windAmountFromStrength(DEFAULT_WIND_STRENGTH));
-  const lengthControls = useDialKit("Blade Lengths", {
-    overall: [1, .5, 1.5, .01],
-    base: [1, .25, 2, .01],
-    length: [1, .25, 2, .01],
-    terrainDepth: [1, 0, 4, .01],
-    showGrass: true,
+  const studyControls = useDialKit("Grass Study", {
+    blade: {
+      overall: [1, .5, 1.5, .01],
+      base: [1, .25, 2, .01],
+      length: [1, .25, 2, .01],
+    },
+    terrain: {
+      terrainDepth: [2, 0, 4, .01],
+      showGrass: true,
+    },
   }, {
-    id: "grass-blade-lengths",
+    // A new id prevents the old value-only depth default from being restored.
+    id: "grass-study-controls-v3",
     persist: true,
   });
   const bladeLengths = useRef({ overall: 1, base: 1, mounds: 1 });
-  const terrainControls = useRef({ depth: 1, showGrass: true });
+  const terrainControls = useRef({ depth: 2, showGrass: true });
   bladeLengths.current = {
-    overall: lengthControls.overall,
-    base: lengthControls.base,
-    mounds: lengthControls.length,
+    overall: studyControls.blade.overall,
+    base: studyControls.blade.base,
+    mounds: studyControls.blade.length,
   };
   terrainControls.current = {
-    depth: lengthControls.terrainDepth,
-    showGrass: lengthControls.showGrass,
+    depth: studyControls.terrain.terrainDepth,
+    showGrass: studyControls.terrain.showGrass,
   };
   const drag = useRef({
     active: false,
