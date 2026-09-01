@@ -115,6 +115,7 @@ uniform mat4 uVP;
 uniform float uTime;
 uniform float uWindScale;
 uniform float uBladeLengthScale;
+uniform float uTerrainDepth;
 uniform float uStudy;
 uniform sampler2D uTerrain;
 out vec3 vNormal;
@@ -140,7 +141,7 @@ void main() {
   float terrainLevel = terrainShape(aRoot.xz);
   float terrainX = terrainShape(aRoot.xz + vec2(0.16, 0.0));
   float terrainZ = terrainShape(aRoot.xz + vec2(0.0, 0.16));
-  float terrainStrength = mix(0.58, 0.43, secondStudy);
+  float terrainStrength = mix(0.58, 0.43, secondStudy) * uTerrainDepth;
   float terrainY = (terrainLevel - 0.5) * terrainStrength;
   vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) * terrainStrength / 0.16;
   vec3 terrainNormal = normalize(vec3(-terrainGradient.x, 1.0, -terrainGradient.y));
@@ -261,6 +262,58 @@ void main() {
   vShade = aMotion.y;
   vGust = gust * 0.78 + wind * 0.22;
   gl_Position = uVP * vec4(world, 1.0);
+}`;
+
+const terrainVertex = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aRootXZ;
+uniform mat4 uVP;
+uniform float uTerrainDepth;
+uniform float uStudy;
+uniform sampler2D uTerrain;
+out vec2 vTerrainUV;
+out vec3 vTerrainNormal;
+out float vTerrainLevel;
+
+vec2 terrainUV(vec2 xz) {
+  return vec2((xz.x + 10.0) / 20.0, (12.0 - xz.y) / 34.0);
+}
+
+float terrainShape(vec2 xz) {
+  vec3 sampleColor = textureLod(uTerrain, clamp(terrainUV(xz), 0.0, 1.0), 5.0).rgb;
+  float luminance = dot(sampleColor, vec3(0.2126, 0.7152, 0.0722));
+  return smoothstep(0.19, 0.76, luminance);
+}
+
+void main() {
+  float secondStudy = step(0.5, uStudy);
+  float level = terrainShape(aRootXZ);
+  float levelX = terrainShape(aRootXZ + vec2(0.12, 0.0));
+  float levelZ = terrainShape(aRootXZ + vec2(0.0, 0.12));
+  float strength = mix(0.58, 0.43, secondStudy) * uTerrainDepth;
+  vec2 gradient = vec2(levelX - level, levelZ - level) * strength / 0.12;
+  vec3 world = vec3(aRootXZ.x, (level - 0.5) * strength, aRootXZ.y);
+  vTerrainUV = clamp(terrainUV(aRootXZ), 0.0, 1.0);
+  vTerrainNormal = normalize(vec3(-gradient.x, 1.0, -gradient.y));
+  vTerrainLevel = level;
+  gl_Position = uVP * vec4(world, 1.0);
+}`;
+
+const terrainFragment = `#version 300 es
+precision highp float;
+in vec2 vTerrainUV;
+in vec3 vTerrainNormal;
+in float vTerrainLevel;
+uniform sampler2D uTerrainVisual;
+out vec4 outColor;
+
+void main() {
+  vec3 mapColor = texture(uTerrainVisual, vTerrainUV).rgb;
+  vec3 sun = normalize(vec3(-0.54, 0.78, 0.32));
+  float direct = max(dot(normalize(vTerrainNormal), sun), 0.0);
+  float formLight = 0.76 + direct * 0.34;
+  float heightLift = mix(0.91, 1.05, vTerrainLevel);
+  outColor = vec4(mapColor * formLight * heightLift, 1.0);
 }`;
 
 const grassFragment = `#version 300 es
@@ -803,6 +856,56 @@ function baseGrassGeometry(
   return { vao, bladeBuffer, instanceBuffer, vertices:(segments+1)*2, count };
 }
 
+function terrainGeometry(gl: WebGL2RenderingContext) {
+  const vao = gl.createVertexArray();
+  const vertexBuffer = gl.createBuffer();
+  const indexBuffer = gl.createBuffer();
+  if (!vao || !vertexBuffer || !indexBuffer) {
+    throw new Error("Terrain geometry allocation failed");
+  }
+
+  const columns = 112;
+  const rows = 224;
+  const vertices = new Float32Array((columns + 1) * (rows + 1) * 2);
+  let vertexOffset = 0;
+  for (let row = 0; row <= rows; row += 1) {
+    const z = 12 - (row / rows) * 35;
+    for (let column = 0; column <= columns; column += 1) {
+      const x = -8.4 + (column / columns) * 16.8;
+      vertices[vertexOffset] = x;
+      vertices[vertexOffset + 1] = z;
+      vertexOffset += 2;
+    }
+  }
+
+  const indices = new Uint32Array(columns * rows * 6);
+  let indexOffset = 0;
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const topLeft = row * (columns + 1) + column;
+      const topRight = topLeft + 1;
+      const bottomLeft = topLeft + columns + 1;
+      const bottomRight = bottomLeft + 1;
+      indices.set(
+        [topLeft, bottomLeft, topRight, topRight, bottomLeft, bottomRight],
+        indexOffset,
+      );
+      indexOffset += 6;
+    }
+  }
+
+  gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+  gl.bindVertexArray(null);
+
+  return { vao, vertexBuffer, indexBuffer, count: indices.length };
+}
+
 function createTerrainTexture(gl: WebGL2RenderingContext, source: string) {
   const texture = gl.createTexture();
   if (!texture) throw new Error("Terrain texture allocation failed");
@@ -861,6 +964,7 @@ function start(
   canvas: HTMLCanvasElement,
   windAmount: { current: number },
   bladeLengths: { current: { overall: number; base: number; mounds: number } },
+  terrainControls: { current: { depth: number; showGrass: boolean } },
   study: StudyId,
 ) {
   const gl = canvas.getContext("webgl2",{antialias:true,alpha:false,depth:true,powerPreference:"high-performance"});
@@ -868,6 +972,7 @@ function start(
   const secondStudy = study === "study-7401";
   const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
+  const terrainProgram = program(gl,terrainVertex,terrainFragment);
   const mobile = matchMedia("(max-width:700px)").matches;
   const baseGrass = baseGrassGeometry(
     gl,
@@ -879,9 +984,15 @@ function start(
     mobile ? (secondStudy ? 94000 : 82000) : (secondStudy ? 154000 : 136000),
     study,
   );
+  const terrainMesh = terrainGeometry(gl);
   const terrain = createTerrainTexture(
     gl,
     secondStudy ? "/IMG_7401-terrain.png" : "/topography-terrain.png",
+  );
+  const terrainVisual = createColorFieldTexture(
+    gl,
+    secondStudy ? "/topographical-map.png" : "/topographical-map.png",
+    [145,106,74,255],
   );
   const referenceColorField = createColorFieldTexture(
     gl,
@@ -902,12 +1013,19 @@ function start(
   const time = gl.getUniformLocation(grassProgram,"uTime");
   const windScale = gl.getUniformLocation(grassProgram,"uWindScale");
   const bladeLengthScale = gl.getUniformLocation(grassProgram,"uBladeLengthScale");
+  const grassTerrainDepth = gl.getUniformLocation(grassProgram,"uTerrainDepth");
   const studyUniform = gl.getUniformLocation(grassProgram,"uStudy");
   const cameraUniform = gl.getUniformLocation(grassProgram,"uCamera");
+  const terrainVP = gl.getUniformLocation(terrainProgram,"uVP");
+  const terrainTextureUniform = gl.getUniformLocation(terrainProgram,"uTerrain");
+  const terrainVisualUniform = gl.getUniformLocation(terrainProgram,"uTerrainVisual");
+  const terrainDepthUniform = gl.getUniformLocation(terrainProgram,"uTerrainDepth");
+  const terrainStudyUniform = gl.getUniformLocation(terrainProgram,"uStudy");
   if (
     !grassVP || !grassTerrain || !referenceColorFieldUniform || !generatedGradientFieldUniform
-    || !resolutionUniform || !time || !windScale || !bladeLengthScale || !studyUniform
-    || !cameraUniform
+    || !resolutionUniform || !time || !windScale || !bladeLengthScale || !grassTerrainDepth
+    || !studyUniform || !cameraUniform || !terrainVP || !terrainTextureUniform
+    || !terrainVisualUniform || !terrainDepthUniform || !terrainStudyUniform
   ) {
     throw new Error("Missing uniforms");
   }
@@ -942,6 +1060,21 @@ function start(
     gl.bindTexture(gl.TEXTURE_2D,referenceColorField.texture);
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D,generatedGradientField.texture);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D,terrainVisual.texture);
+    const liveTerrain = terrainControls.current;
+    if (!liveTerrain.showGrass) {
+      gl.useProgram(terrainProgram);
+      gl.uniformMatrix4fv(terrainVP,false,vp);
+      gl.uniform1i(terrainTextureUniform,0);
+      gl.uniform1i(terrainVisualUniform,3);
+      gl.uniform1f(terrainDepthUniform,liveTerrain.depth);
+      gl.uniform1f(terrainStudyUniform,secondStudy ? 1 : 0);
+      gl.bindVertexArray(terrainMesh.vao);
+      gl.drawElements(gl.TRIANGLES,terrainMesh.count,gl.UNSIGNED_INT,0);
+      frame=requestAnimationFrame(render);
+      return;
+    }
     gl.useProgram(grassProgram);
     gl.uniformMatrix4fv(grassVP,false,vp);
     gl.uniform1i(grassTerrain,0);
@@ -950,6 +1083,7 @@ function start(
     gl.uniform2f(resolutionUniform,width,height);
     gl.uniform1f(time,windClock);
     gl.uniform1f(windScale,amount);
+    gl.uniform1f(grassTerrainDepth,liveTerrain.depth);
     gl.uniform1f(studyUniform,secondStudy ? 1 : 0);
     gl.uniform3fv(cameraUniform,camera);
     const liveLengths = bladeLengths.current;
@@ -970,13 +1104,19 @@ function start(
     gl.deleteBuffer(moundGrass.bladeBuffer);
     gl.deleteBuffer(moundGrass.instanceBuffer);
     gl.deleteVertexArray(moundGrass.vao);
+    gl.deleteBuffer(terrainMesh.vertexBuffer);
+    gl.deleteBuffer(terrainMesh.indexBuffer);
+    gl.deleteVertexArray(terrainMesh.vao);
     terrain.image.onload = null;
     gl.deleteTexture(terrain.texture);
+    terrainVisual.image.onload = null;
+    gl.deleteTexture(terrainVisual.texture);
     referenceColorField.image.onload = null;
     gl.deleteTexture(referenceColorField.texture);
     generatedGradientField.image.onload = null;
     gl.deleteTexture(generatedGradientField.texture);
     gl.deleteProgram(grassProgram);
+    gl.deleteProgram(terrainProgram);
   };
 }
 
@@ -1397,15 +1537,22 @@ export function OrnamentalGrass() {
     overall: [1, .5, 1.5, .01],
     base: [1, .25, 2, .01],
     mounds: [1, .25, 2, .01],
+    terrainDepth: [1, 0, 4, .01],
+    showGrass: true,
   }, {
     id: "grass-blade-lengths",
     persist: true,
   });
   const bladeLengths = useRef({ overall: 1, base: 1, mounds: 1 });
+  const terrainControls = useRef({ depth: 1, showGrass: true });
   bladeLengths.current = {
     overall: lengthControls.overall,
     base: lengthControls.base,
     mounds: lengthControls.mounds,
+  };
+  terrainControls.current = {
+    depth: lengthControls.terrainDepth,
+    showGrass: lengthControls.showGrass,
   };
   const drag = useRef({
     active: false,
@@ -1422,7 +1569,7 @@ export function OrnamentalGrass() {
   const [isDragging, setIsDragging] = useState(false);
   useEffect(() => {
     if (!ref.current) return;
-    try { return start(ref.current,windAmount,bladeLengths,activeStudy); }
+    try { return start(ref.current,windAmount,bladeLengths,terrainControls,activeStudy); }
     catch (error) { console.error("Unable to start the ornamental grass field",error); }
   },[activeStudy]);
   const activeReference = REFERENCE_MEDIA.find((media) => media.id === activeReferenceId)
