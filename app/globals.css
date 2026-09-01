@@ -103,6 +103,11 @@ body {
   transform: translateX(50%);
 }
 
+.reference-map-item {
+  position: relative;
+  width: 100%;
+}
+
 .reference-map-button {
   position: relative;
   display: block;
@@ -130,6 +135,26 @@ body {
 
 .reference-map-button:focus-visible {
   outline: 0;
+}
+
+.reference-map-hover-label {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 12px);
+  color: #20211f;
+  font: 500 9.6px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  letter-spacing: -.02em;
+  opacity: 0;
+  transform: translate(-3px, -50%);
+  transition: opacity 140ms ease, transform 180ms cubic-bezier(.2,.75,.25,1);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.reference-map-item:hover .reference-map-hover-label,
+.reference-map-item:focus-within .reference-map-hover-label {
+  opacity: 1;
+  transform: translate(0, -50%);
 }
 
 .reference-map {

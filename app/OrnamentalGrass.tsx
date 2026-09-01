@@ -1096,34 +1096,41 @@ export function OrnamentalGrass() {
             {referenceChoices.map((media) => {
               const selected = activeReference.id === media.id;
               return (
-              <button
+              <div
                 key={media.id}
-                className={`reference-map-button${selected ? " is-selected" : ""}`}
-                type="button"
-                aria-label={`Show ${media.caption}`}
-                aria-pressed={selected}
-                onClick={() => setActiveReferenceId(media.id)}
+                className="reference-map-item"
               >
-                {media.kind === "video" ? (
-                  <video
-                    className="reference-map"
-                    src={media.src}
-                    poster={media.poster}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="metadata"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <img
-                    className="reference-map"
-                    src={media.src}
-                    alt=""
-                  />
-                )}
-              </button>
+                <button
+                  className={`reference-map-button${selected ? " is-selected" : ""}`}
+                  type="button"
+                  aria-label={`Show ${media.caption}`}
+                  aria-pressed={selected}
+                  onClick={() => setActiveReferenceId(media.id)}
+                >
+                  {media.kind === "video" ? (
+                    <video
+                      className="reference-map"
+                      src={media.src}
+                      poster={media.poster}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      preload="metadata"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <img
+                      className="reference-map"
+                      src={media.src}
+                      alt=""
+                    />
+                  )}
+                </button>
+                <span className="reference-map-hover-label" aria-hidden="true">
+                  {media.caption}
+                </span>
+              </div>
               );
             })}
           </aside>
