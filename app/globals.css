@@ -222,6 +222,8 @@ body {
 }
 
 .grass-stage.recording-grid-stage {
+  overflow: visible;
+  border-radius: 0;
   background: transparent;
 }
 

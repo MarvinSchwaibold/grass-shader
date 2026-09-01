@@ -71,7 +71,6 @@ private struct RecordingGridPage: View {
             }
             .frame(width: stageWidth, height: stageHeight)
             .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .position(
                 x: proxy.size.width / 2,
                 y: topInset + stageHeight / 2
