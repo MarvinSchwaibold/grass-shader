@@ -1018,7 +1018,7 @@ function RecordingGridExperience() {
   });
 
   const destinationFrame = () => {
-    const destination = document.querySelector<HTMLElement>(".reference-stage");
+    const destination = document.querySelector<HTMLElement>(".recording-grid-stage");
     if (destination) return frameFromRect(destination.getBoundingClientRect(), 12);
     const height = Math.min(window.innerHeight - 72, 920);
     const width = height * (832 / 1492);
