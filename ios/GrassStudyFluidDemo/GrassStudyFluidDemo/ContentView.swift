@@ -50,7 +50,7 @@ private struct RecordingGridPage: View {
             let bottomInset = max(proxy.safeAreaInsets.bottom + 44, 58)
             let stageWidth = max(1, proxy.size.width - horizontalInset * 2)
             let stageHeight = max(1, proxy.size.height - topInset - bottomInset)
-            let recordingHeight = max(1, (stageHeight - 48) / 3)
+            let recordingHeight = max(1, (stageHeight - 24) / 3)
 
             LazyVGrid(
                 columns: [
@@ -69,9 +69,8 @@ private struct RecordingGridPage: View {
                     .accessibilityLabel("Grass study recording IMG_\(recording)")
                 }
             }
-            .padding(12)
             .frame(width: stageWidth, height: stageHeight)
-            .background(Color(red: 31 / 255, green: 31 / 255, blue: 31 / 255))
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .position(
                 x: proxy.size.width / 2,

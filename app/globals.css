@@ -49,8 +49,8 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: clamp(10px, 1.15vw, 15px);
-  padding: clamp(10px, 1.15vw, 15px);
-  background: #1f1f1f;
+  padding: 0;
+  background: #ffffff;
 }
 
 .recording-grid-item {
