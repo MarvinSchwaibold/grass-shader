@@ -94,6 +94,18 @@ body {
   user-select: none;
 }
 
+.recording-grid-item.is-flight-source {
+  background: transparent;
+}
+
+.recording-grid-item.is-flight-source:focus-visible {
+  outline: 0;
+}
+
+.recording-grid-item.is-flight-source .recording-grid-video {
+  visibility: hidden;
+}
+
 .recording-overlay-layer {
   position: fixed;
   inset: 0;
@@ -119,6 +131,16 @@ body {
 
 .recording-overlay-card:active {
   cursor: grabbing;
+}
+
+.recording-overlay-card-active {
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.recording-overlay-card-returning {
+  z-index: 1;
+  pointer-events: none;
 }
 
 .recording-overlay-video {

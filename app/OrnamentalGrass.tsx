@@ -81,6 +81,20 @@ type RecordingFrame = {
 
 type RecordingOverlayPhase = "idle" | "opening" | "open" | "dragging" | "closing";
 
+type RecordingReturnFlight = {
+  id: number;
+  recording: string;
+  index: number;
+  from: RecordingFrame;
+  to: RecordingFrame;
+  velocityX: number;
+  velocityY: number;
+  velocityWidth: number;
+  velocityHeight: number;
+  velocityRadius: number;
+  playbackTime: number;
+};
+
 type GridPull = {
   index: number;
   deltaX: number;
@@ -104,6 +118,72 @@ function rubberBandDistance(distance: number, dimension: number) {
   if (distance <= 0) return distance * .18;
   const safeDimension = Math.max(dimension, 1);
   return (distance * .72) / (1 + distance / (safeDimension * .72));
+}
+
+function ReturningRecording({
+  flight,
+  onComplete,
+}: {
+  flight: RecordingReturnFlight;
+  onComplete: (id: number) => void;
+}) {
+  return (
+    <motion.div
+      className="recording-overlay-card recording-overlay-card-returning"
+      initial={{
+        x: flight.from.x,
+        y: flight.from.y,
+        width: flight.from.width,
+        height: flight.from.height,
+        borderRadius: flight.from.radius,
+      }}
+      animate={{
+        x: flight.to.x,
+        y: flight.to.y,
+        width: flight.to.width,
+        height: flight.to.height,
+        borderRadius: flight.to.radius,
+      }}
+      transition={{
+        x: { type: "spring", ...RECORDING_SPRING, velocity: flight.velocityX },
+        y: { type: "spring", ...RECORDING_SPRING, velocity: flight.velocityY },
+        width: {
+          type: "spring",
+          ...RECORDING_SPRING,
+          velocity: flight.velocityWidth,
+        },
+        height: {
+          type: "spring",
+          ...RECORDING_SPRING,
+          velocity: flight.velocityHeight,
+        },
+        borderRadius: {
+          type: "spring",
+          ...RECORDING_SPRING,
+          velocity: flight.velocityRadius,
+        },
+      }}
+      onAnimationComplete={() => onComplete(flight.id)}
+      aria-hidden="true"
+    >
+      <video
+        className="recording-overlay-video"
+        src={`/study-${flight.recording}.mp4`}
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        onLoadedMetadata={(event) => {
+          const video = event.currentTarget;
+          if (Number.isFinite(flight.playbackTime)) {
+            video.currentTime = flight.playbackTime;
+          }
+          void video.play().catch(() => undefined);
+        }}
+      />
+    </motion.div>
+  );
 }
 
 const grassVertex = `#version 300 es
@@ -1155,6 +1235,7 @@ function start(
 
 function RecordingGridExperience() {
   const tileRefs = useRef(new Map<number, HTMLButtonElement>());
+  const tileVideoRefs = useRef(new Map<number, HTMLVideoElement>());
   const tileGesture = useRef({
     pointerId: -1,
     index: -1,
@@ -1181,9 +1262,16 @@ function RecordingGridExperience() {
     samples: [] as Array<{ x: number; y: number; time: number }>,
   });
   const sourceFrame = useRef<RecordingFrame | null>(null);
+  const activeRecordingRef = useRef<string | null>(null);
+  const activeIndexRef = useRef<number | null>(null);
+  const activeVideoRef = useRef<HTMLVideoElement>(null);
+  const nextReturnFlightId = useRef(0);
   const overlayPhaseRef = useRef<RecordingOverlayPhase>("idle");
   const [overlayPhase, setOverlayPhaseState] = useState<RecordingOverlayPhase>("idle");
   const [overlayRecording, setOverlayRecording] = useState<string | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [overlayPlaybackTime, setOverlayPlaybackTime] = useState(0);
+  const [returnFlights, setReturnFlights] = useState<RecordingReturnFlight[]>([]);
   const [gridPull, setGridPull] = useState<GridPull | null>(null);
   const [gridReleaseVelocity, setGridReleaseVelocity] = useState(0);
 
@@ -1251,30 +1339,74 @@ function RecordingGridExperience() {
     overlayRadius.set(frame.radius);
   };
 
-  const openRecording = (recording: string, index: number) => {
+  const frameForTile = (index: number) => {
     const tile = tileRefs.current.get(index);
-    if (!tile) return;
-    sourceFrame.current = frameFromRect(tile.getBoundingClientRect(), 14);
-    setOverlayRecording(recording);
+    return tile ? frameFromRect(tile.getBoundingClientRect(), 14) : null;
+  };
 
-    if (overlayPhaseRef.current === "idle") {
-      jumpToFrame(sourceFrame.current);
-      setOverlayPhase("opening");
-      requestAnimationFrame(() => retargetToFrame(destinationFrame()));
+  const finishReturnFlight = (id: number) => {
+    setReturnFlights((flights) => flights.filter((flight) => flight.id !== id));
+  };
+
+  const handoffActiveToReturn = (velocityX = 0, velocityY = 0) => {
+    const recording = activeRecordingRef.current;
+    const index = activeIndexRef.current;
+    if (recording === null || index === null || overlayPhaseRef.current === "idle") {
+      return false;
+    }
+
+    const target = frameForTile(index) ?? sourceFrame.current;
+    if (!target) return false;
+    const flight: RecordingReturnFlight = {
+      id: ++nextReturnFlightId.current,
+      recording,
+      index,
+      from: currentFrame(),
+      to: target,
+      velocityX: velocityX || overlayX.getVelocity(),
+      velocityY: velocityY || overlayY.getVelocity(),
+      velocityWidth: overlayWidth.getVelocity(),
+      velocityHeight: overlayHeight.getVelocity(),
+      velocityRadius: overlayRadius.getVelocity(),
+      playbackTime: activeVideoRef.current?.currentTime ?? 0,
+    };
+
+    setReturnFlights((flights) => [...flights, flight]);
+    activeRecordingRef.current = null;
+    activeIndexRef.current = null;
+    sourceFrame.current = null;
+    setOverlayPhase("idle");
+    setOverlayRecording(null);
+    setActiveIndex(null);
+    return true;
+  };
+
+  const openRecording = (recording: string, index: number) => {
+    if (returnFlights.some((flight) => flight.index === index)) return;
+    if (activeIndexRef.current === index) {
+      handoffActiveToReturn();
       return;
     }
 
-    // This is the key retargeting path: the same live springs keep their
-    // current velocity while their destination and content change.
+    if (activeIndexRef.current !== null) handoffActiveToReturn();
+    const source = frameForTile(index);
+    if (!source) return;
+    sourceFrame.current = source;
+    activeRecordingRef.current = recording;
+    activeIndexRef.current = index;
+    setActiveIndex(index);
+    setOverlayPlaybackTime(tileVideoRefs.current.get(index)?.currentTime ?? 0);
+    setOverlayRecording(recording);
+    jumpToFrame(source);
     setOverlayPhase("opening");
-    retargetToFrame(destinationFrame());
+    requestAnimationFrame(() => {
+      if (activeIndexRef.current === index) retargetToFrame(destinationFrame());
+    });
   };
 
   const closeOverlay = (velocityX = 0, velocityY = 0) => {
-    if (!sourceFrame.current || overlayPhaseRef.current === "idle") return;
-    setOverlayPhase("closing");
-    seedReleaseVelocity(velocityX, velocityY);
-    retargetToFrame(sourceFrame.current);
+    if (overlayPhaseRef.current === "idle") return;
+    handoffActiveToReturn(velocityX, velocityY);
   };
 
   const springOverlayOpen = (velocityX = 0, velocityY = 0) => {
@@ -1283,21 +1415,19 @@ function RecordingGridExperience() {
     retargetToFrame(destinationFrame());
   };
 
-  useMotionValueEvent(overlayX, "animationComplete", () => {
-    if (overlayPhaseRef.current === "closing" && sourceFrame.current) {
-      const source = sourceFrame.current;
-      if (
-        Math.abs(overlayX.get() - source.x) < 1
-        && Math.abs(overlayY.get() - source.y) < 1
-        && Math.abs(overlayWidth.get() - source.width) < 1
-      ) {
-        setOverlayPhase("idle");
-        setOverlayRecording(null);
-      }
-      return;
-    }
-    if (overlayPhaseRef.current === "opening") setOverlayPhase("open");
-  });
+  const settleOverlayPhase = () => {
+    if (overlayPhaseRef.current !== "opening" || activeIndexRef.current === null) return;
+    const destination = destinationFrame();
+    if (
+      Math.abs(overlayX.get() - destination.x) < 1
+      && Math.abs(overlayY.get() - destination.y) < 1
+      && Math.abs(overlayWidth.get() - destination.width) < 1
+      && Math.abs(overlayHeight.get() - destination.height) < 1
+    ) setOverlayPhase("open");
+  };
+
+  useMotionValueEvent(overlayX, "animationComplete", settleOverlayPhase);
+  useMotionValueEvent(overlayWidth, "animationComplete", settleOverlayPhase);
 
   useEffect(() => {
     const onResize = () => {
@@ -1559,6 +1689,9 @@ function RecordingGridExperience() {
     };
   };
 
+  const occupiedIndices = new Set(returnFlights.map((flight) => flight.index));
+  if (activeIndex !== null) occupiedIndices.add(activeIndex);
+
   return (
     <section
       className="recording-grid-experience"
@@ -1567,13 +1700,14 @@ function RecordingGridExperience() {
       <div className="grass-stage recording-grid-stage" onWheel={onGridWheel}>
         {STUDY_RECORDINGS.map((recording, index) => {
           const movement = tileMotion(index);
+          const isFlightSource = occupiedIndices.has(index);
           return (
             <motion.button
               ref={(node) => {
                 if (node) tileRefs.current.set(index, node);
                 else tileRefs.current.delete(index);
               }}
-              className="recording-grid-item"
+              className={`recording-grid-item${isFlightSource ? " is-flight-source" : ""}`}
               type="button"
               key={recording}
               data-grid-index={index}
@@ -1599,8 +1733,13 @@ function RecordingGridExperience() {
               onClick={(event) => {
                 if (event.detail === 0) openRecording(recording, index);
               }}
+              aria-disabled={returnFlights.some((flight) => flight.index === index)}
             >
               <video
+                ref={(node) => {
+                  if (node) tileVideoRefs.current.set(index, node);
+                  else tileVideoRefs.current.delete(index);
+                }}
                 className="recording-grid-video"
                 src={`/study-${recording}.mp4`}
                 autoPlay
@@ -1618,37 +1757,54 @@ function RecordingGridExperience() {
         })}
       </div>
 
-      {overlayRecording && overlayPhase !== "idle" ? (
+      {returnFlights.length > 0
+      || (overlayRecording && overlayPhase !== "idle" && activeIndex !== null) ? (
         <div className="recording-overlay-layer" aria-live="polite">
-          <motion.div
-            className="recording-overlay-card"
-            role="dialog"
-            aria-label={`Expanded grass study recording IMG_${overlayRecording}`}
-            aria-modal="false"
-            style={{
-              x: overlayX,
-              y: overlayY,
-              width: overlayWidth,
-              height: overlayHeight,
-              borderRadius: overlayRadius,
-              pointerEvents: overlayPhase === "closing" ? "none" : "auto",
-            }}
-            onPointerDown={onOverlayPointerDown}
-            onPointerMove={onOverlayPointerMove}
-            onPointerUp={(event) => finishOverlayGesture(event)}
-            onPointerCancel={(event) => finishOverlayGesture(event, true)}
-          >
-            <video
-              key={overlayRecording}
-              className="recording-overlay-video"
-              src={`/study-${overlayRecording}.mp4`}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="auto"
+          {returnFlights.map((flight) => (
+            <ReturningRecording
+              key={flight.id}
+              flight={flight}
+              onComplete={finishReturnFlight}
             />
-          </motion.div>
+          ))}
+          {overlayRecording && overlayPhase !== "idle" && activeIndex !== null ? (
+            <motion.div
+              className="recording-overlay-card recording-overlay-card-active"
+              role="dialog"
+              aria-label={`Expanded grass study recording IMG_${overlayRecording}`}
+              aria-modal="false"
+              style={{
+                x: overlayX,
+                y: overlayY,
+                width: overlayWidth,
+                height: overlayHeight,
+                borderRadius: overlayRadius,
+              }}
+              onPointerDown={onOverlayPointerDown}
+              onPointerMove={onOverlayPointerMove}
+              onPointerUp={(event) => finishOverlayGesture(event)}
+              onPointerCancel={(event) => finishOverlayGesture(event, true)}
+            >
+              <video
+                ref={activeVideoRef}
+                key={`${overlayRecording}-${activeIndex}`}
+                className="recording-overlay-video"
+                src={`/study-${overlayRecording}.mp4`}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                onLoadedMetadata={(event) => {
+                  const video = event.currentTarget;
+                  if (Number.isFinite(overlayPlaybackTime)) {
+                    video.currentTime = overlayPlaybackTime;
+                  }
+                  void video.play().catch(() => undefined);
+                }}
+              />
+            </motion.div>
+          ) : null}
         </div>
       ) : null}
     </section>

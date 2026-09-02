@@ -42,14 +42,24 @@ struct ContentView: View {
 }
 
 private struct RecordingGridPage: View {
+    private enum ArtifactPhase {
+        case idle
+        case opening
+        case open
+        case dragging
+        case closing
+    }
+
     private let recordings = ["7394", "7398", "7400", "7401", "7403", "7406"]
     @StateObject private var motion = WaveArtifactMotion()
     @State private var selectedRecording: String?
     @State private var selectedSourceFrame: CGRect?
+    @State private var artifactPhase: ArtifactPhase = .idle
     @State private var isDragging = false
     @State private var dragStartFrame: CGRect = .zero
     @State private var dragStartRadius: CGFloat = 28
     @State private var flightID = 0
+    @State private var returningFlights: [ReturningRecordingFlight] = []
 
     var body: some View {
         GeometryReader { proxy in
@@ -79,54 +89,29 @@ private struct RecordingGridPage: View {
                     spacing: 12
                 ) {
                     ForEach(recordings, id: \.self) { recording in
-                        Button {
-                            guard let sourceFrame = recordingFrames[recording] else {
-                                return
-                            }
-                            open(
-                                recording,
-                                sourceFrame: sourceFrame,
-                                expandedFrame: expandedFrame
-                            )
-                        } label: {
-                            ZStack {
-                                LoopingVideoView(
-                                    resource: "study-\(recording)",
-                                    fileExtension: "mp4"
-                                )
-                                .allowsHitTesting(false)
-
-                                Color.clear
-                                    .contentShape(Rectangle())
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .clipShape(
-                                RoundedRectangle(
-                                    cornerRadius: 15,
-                                    style: .continuous
-                                )
-                            )
-                            .contentShape(
-                                RoundedRectangle(
-                                    cornerRadius: 15,
-                                    style: .continuous
-                                )
-                            )
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        recordingCell(
+                            recording,
+                            sourceFrame: recordingFrames[recording],
+                            expandedFrame: expandedFrame
+                        )
                         .frame(height: recordingHeight)
-                        .opacity(selectedRecording == recording ? 0 : 1)
-                        .buttonStyle(FluidThumbnailButtonStyle())
-                        .accessibilityLabel("Open grass study recording IMG_\(recording)")
                     }
                 }
                 .frame(width: stageWidth, height: stageHeight)
+
+                ForEach(returningFlights) { flight in
+                    ReturningRecordingArtifact(flight: flight)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                        .zIndex(90)
+                }
 
                 if let selectedRecording {
                     LoopingVideoView(
                         resource: "study-\(selectedRecording)",
                         fileExtension: "mp4"
                     )
+                    .id("recording-artifact-\(selectedRecording)")
                     .frame(
                         width: max(1, motion.frame.width),
                         height: max(1, motion.frame.height)
@@ -165,6 +150,41 @@ private struct RecordingGridPage: View {
                     .accessibilityAddTraits(.isModal)
                     .zIndex(100)
                 }
+
+                if artifactPhase == .closing {
+                    ForEach(recordings, id: \.self) { recording in
+                        if recording != selectedRecording,
+                           !returningFlights.contains(where: { $0.recording == recording }),
+                           let sourceFrame = recordingFrames[recording] {
+                            Button {
+                                open(
+                                    recording,
+                                    sourceFrame: sourceFrame,
+                                    expandedFrame: expandedFrame
+                                )
+                            } label: {
+                                Color.clear
+                                    .contentShape(
+                                        RoundedRectangle(
+                                            cornerRadius: 15,
+                                            style: .continuous
+                                        )
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .frame(
+                                width: sourceFrame.width,
+                                height: sourceFrame.height
+                            )
+                            .position(
+                                x: sourceFrame.midX,
+                                y: sourceFrame.midY
+                            )
+                            .accessibilityLabel("Open grass study recording IMG_\(recording)")
+                            .zIndex(110)
+                        }
+                    }
+                }
             }
             .frame(width: stageWidth, height: stageHeight)
             .background(Color.white)
@@ -175,6 +195,57 @@ private struct RecordingGridPage: View {
             )
         }
         .background(Color.white)
+    }
+
+    @ViewBuilder
+    private func recordingCell(
+        _ recording: String,
+        sourceFrame: CGRect?,
+        expandedFrame: CGRect
+    ) -> some View {
+        if selectedRecording == recording || returningFlights.contains(where: { $0.recording == recording }) {
+            // Every recording has exactly one visual instance while it is in
+            // flight. Its grid cell stays as a layout-only source/target.
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityHidden(true)
+        } else {
+            Button {
+                guard let sourceFrame else { return }
+                open(
+                    recording,
+                    sourceFrame: sourceFrame,
+                    expandedFrame: expandedFrame
+                )
+            } label: {
+                ZStack {
+                    LoopingVideoView(
+                        resource: "study-\(recording)",
+                        fileExtension: "mp4"
+                    )
+                    .allowsHitTesting(false)
+
+                    Color.clear
+                        .contentShape(Rectangle())
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: 15,
+                        style: .continuous
+                    )
+                )
+                .contentShape(
+                    RoundedRectangle(
+                        cornerRadius: 15,
+                        style: .continuous
+                    )
+                )
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .buttonStyle(FluidThumbnailButtonStyle())
+            .accessibilityLabel("Open grass study recording IMG_\(recording)")
+        }
     }
 
     private func dismissGesture(
@@ -188,6 +259,8 @@ private struct RecordingGridPage: View {
 
                 if !isDragging {
                     isDragging = true
+                    flightID += 1
+                    artifactPhase = .dragging
                     dragStartFrame = motion.frame
                     dragStartRadius = motion.cornerRadius
                     motion.beginInteraction()
@@ -242,11 +315,17 @@ private struct RecordingGridPage: View {
                     close(frameVelocity: frameVelocity)
                 } else {
                     flightID += 1
+                    let openingFlightID = flightID
+                    artifactPhase = .opening
                     motion.retarget(
                         frame: expandedFrame,
                         cornerRadius: 28,
                         frameVelocity: frameVelocity,
-                        radiusVelocity: -releaseVelocityY * 0.01
+                        radiusVelocity: -releaseVelocityY * 0.01,
+                        completion: {
+                            guard openingFlightID == flightID else { return }
+                            artifactPhase = .open
+                        }
                     )
                 }
             }
@@ -258,13 +337,28 @@ private struct RecordingGridPage: View {
         expandedFrame: CGRect
     ) {
         flightID += 1
-        if selectedRecording == nil {
-            motion.jump(frame: sourceFrame, cornerRadius: 15)
+        let openingFlightID = flightID
+
+        if selectedRecording != nil {
+            handOffActiveRecordingToItsSource()
         }
+
+        // A newly selected recording always begins at its own current grid
+        // frame. It never inherits the outgoing recording's geometry.
+        motion.jump(frame: sourceFrame, cornerRadius: 15)
         selectedSourceFrame = sourceFrame
         selectedRecording = recording
+        artifactPhase = .opening
         isDragging = false
-        motion.retarget(frame: expandedFrame, cornerRadius: 28)
+        motion.retarget(
+            frame: expandedFrame,
+            cornerRadius: 28,
+            completion: {
+                guard openingFlightID == flightID,
+                      selectedRecording == recording else { return }
+                artifactPhase = .open
+            }
+        )
     }
 
     private func handleOverlayTap(
@@ -276,13 +370,7 @@ private struct RecordingGridPage: View {
             x: motion.frame.minX + localPoint.x,
             y: motion.frame.minY + localPoint.y
         )
-        let isTargetingSource = selectedSourceFrame.map {
-            motion.isTargeting($0)
-        } ?? false
-        let isInFlightNearGrid = isTargetingSource
-            || !motion.isAt(expandedFrame)
-
-        if isInFlightNearGrid,
+        if artifactPhase == .closing,
            let recording = recordings.first(where: {
                recordingFrames[$0]?.contains(stagePoint) == true
            }),
@@ -296,7 +384,7 @@ private struct RecordingGridPage: View {
             return
         }
 
-        togglePresentation(expandedFrame: expandedFrame)
+        close()
     }
 
     private func recordingFrames(
@@ -322,30 +410,52 @@ private struct RecordingGridPage: View {
         })
     }
 
-    private func togglePresentation(expandedFrame: CGRect) {
-        guard let selectedSourceFrame else { return }
-        if motion.isTargeting(selectedSourceFrame) {
-            flightID += 1
-            motion.retarget(frame: expandedFrame, cornerRadius: 28)
-        } else {
-            close()
-        }
-    }
-
     private func close(frameVelocity: CGRect? = nil) {
-        guard let selectedSourceFrame else { return }
+        guard let selectedRecording, let selectedSourceFrame else { return }
         flightID += 1
         let closingFlightID = flightID
+        artifactPhase = .closing
+        isDragging = false
         motion.retarget(
             frame: selectedSourceFrame,
             cornerRadius: 15,
             frameVelocity: frameVelocity,
             completion: {
-                guard closingFlightID == flightID else { return }
-                selectedRecording = nil
+                guard closingFlightID == flightID,
+                      self.selectedRecording == selectedRecording else { return }
+                self.selectedRecording = nil
                 self.selectedSourceFrame = nil
+                artifactPhase = .idle
             }
         )
+    }
+
+    private func handOffActiveRecordingToItsSource() {
+        guard let recording = selectedRecording,
+              let sourceFrame = selectedSourceFrame else { return }
+
+        let snapshot = motion.snapshot()
+        let returningFlight = ReturningRecordingFlight(
+            recording: recording,
+            sourceFrame: sourceFrame,
+            snapshot: snapshot
+        )
+        returningFlights.append(returningFlight)
+
+        returningFlight.motion.retarget(
+            frame: sourceFrame,
+            cornerRadius: 15,
+            frameVelocity: snapshot.frameVelocity,
+            radiusVelocity: snapshot.radiusVelocity,
+            completion: {
+                returningFlights.removeAll { $0.id == returningFlight.id }
+            }
+        )
+
+        selectedRecording = nil
+        selectedSourceFrame = nil
+        artifactPhase = .idle
+        isDragging = false
     }
 
     private func gestureFrameVelocity(
@@ -363,6 +473,64 @@ private struct RecordingGridPage: View {
             width: widthVelocity,
             height: heightVelocity
         )
+    }
+}
+
+private struct WaveArtifactSnapshot {
+    let frame: CGRect
+    let cornerRadius: CGFloat
+    let frameVelocity: CGRect
+    let radiusVelocity: CGFloat
+}
+
+private final class ReturningRecordingFlight: Identifiable {
+    let id = UUID()
+    let recording: String
+    let sourceFrame: CGRect
+    let motion: WaveArtifactMotion
+
+    init(
+        recording: String,
+        sourceFrame: CGRect,
+        snapshot: WaveArtifactSnapshot
+    ) {
+        self.recording = recording
+        self.sourceFrame = sourceFrame
+        motion = WaveArtifactMotion()
+        motion.jump(
+            frame: snapshot.frame,
+            cornerRadius: snapshot.cornerRadius
+        )
+    }
+}
+
+private struct ReturningRecordingArtifact: View {
+    let flight: ReturningRecordingFlight
+    @ObservedObject private var motion: WaveArtifactMotion
+
+    init(flight: ReturningRecordingFlight) {
+        self.flight = flight
+        _motion = ObservedObject(wrappedValue: flight.motion)
+    }
+
+    var body: some View {
+        LoopingVideoView(
+            resource: "study-\(flight.recording)",
+            fileExtension: "mp4"
+        )
+        .id("returning-recording-\(flight.id)")
+        .frame(
+            width: max(1, motion.frame.width),
+            height: max(1, motion.frame.height)
+        )
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: motion.cornerRadius,
+                style: .continuous
+            )
+        )
+        .position(x: motion.frame.midX, y: motion.frame.midY)
+        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
     }
 }
 
@@ -417,6 +585,15 @@ private final class WaveArtifactMotion: ObservableObject {
         self.cornerRadius = cornerRadius
     }
 
+    func snapshot() -> WaveArtifactSnapshot {
+        WaveArtifactSnapshot(
+            frame: frame,
+            cornerRadius: cornerRadius,
+            frameVelocity: frameAnimator.velocity,
+            radiusVelocity: radiusAnimator.velocity
+        )
+    }
+
     func retarget(
         frame: CGRect,
         cornerRadius: CGFloat,
@@ -441,21 +618,6 @@ private final class WaveArtifactMotion: ObservableObject {
         if radiusAnimator.state != .running {
             radiusAnimator.start()
         }
-    }
-
-    func isTargeting(_ frame: CGRect) -> Bool {
-        guard let target = frameAnimator.target else { return false }
-        return abs(target.minX - frame.minX) < 0.5
-            && abs(target.minY - frame.minY) < 0.5
-            && abs(target.width - frame.width) < 0.5
-            && abs(target.height - frame.height) < 0.5
-    }
-
-    func isAt(_ frame: CGRect) -> Bool {
-        abs(self.frame.minX - frame.minX) < 0.5
-            && abs(self.frame.minY - frame.minY) < 0.5
-            && abs(self.frame.width - frame.width) < 0.5
-            && abs(self.frame.height - frame.height) < 0.5
     }
 
     private func stopAnimators() {
