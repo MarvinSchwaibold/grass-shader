@@ -126,6 +126,8 @@ body {
   touch-action: none;
   user-select: none;
   will-change: transform, width, height, border-radius;
+  backface-visibility: hidden;
+  contain: paint;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -150,6 +152,11 @@ body {
   object-fit: cover;
   pointer-events: none;
   user-select: none;
+  backface-visibility: hidden;
+}
+
+.recording-overlay-frame {
+  -webkit-user-drag: none;
 }
 
 .generated-stage-shell {

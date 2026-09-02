@@ -93,6 +93,7 @@ type RecordingReturnFlight = {
   velocityHeight: number;
   velocityRadius: number;
   playbackTime: number;
+  frameDataUrl: string | null;
 };
 
 type GridPull = {
@@ -118,6 +119,26 @@ function rubberBandDistance(distance: number, dimension: number) {
   if (distance <= 0) return distance * .18;
   const safeDimension = Math.max(dimension, 1);
   return (distance * .72) / (1 + distance / (safeDimension * .72));
+}
+
+function captureRecordingFrame(video: HTMLVideoElement | null) {
+  if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return null;
+  if (video.videoWidth < 1 || video.videoHeight < 1) return null;
+
+  const longestSide = Math.max(video.videoWidth, video.videoHeight);
+  const scale = Math.min(1, 960 / longestSide);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+  const context = canvas.getContext("2d", { alpha: false });
+  if (!context) return null;
+
+  try {
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", .94);
+  } catch {
+    return null;
+  }
 }
 
 function ReturningRecording({
@@ -166,22 +187,31 @@ function ReturningRecording({
       onAnimationComplete={() => onComplete(flight.id)}
       aria-hidden="true"
     >
-      <video
-        className="recording-overlay-video"
-        src={`/study-${flight.recording}.mp4`}
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="auto"
-        onLoadedMetadata={(event) => {
-          const video = event.currentTarget;
-          if (Number.isFinite(flight.playbackTime)) {
-            video.currentTime = flight.playbackTime;
-          }
-          void video.play().catch(() => undefined);
-        }}
-      />
+      {flight.frameDataUrl ? (
+        <img
+          className="recording-overlay-video recording-overlay-frame"
+          src={flight.frameDataUrl}
+          alt=""
+          draggable={false}
+        />
+      ) : (
+        <video
+          className="recording-overlay-video"
+          src={`/study-${flight.recording}.mp4`}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          onLoadedMetadata={(event) => {
+            const video = event.currentTarget;
+            if (Number.isFinite(flight.playbackTime)) {
+              video.currentTime = flight.playbackTime;
+            }
+            void video.play().catch(() => undefined);
+          }}
+        />
+      )}
     </motion.div>
   );
 }
@@ -1265,6 +1295,7 @@ function RecordingGridExperience() {
   const activeRecordingRef = useRef<string | null>(null);
   const activeIndexRef = useRef<number | null>(null);
   const activeVideoRef = useRef<HTMLVideoElement>(null);
+  const activeCardRef = useRef<HTMLDivElement>(null);
   const nextReturnFlightId = useRef(0);
   const overlayPhaseRef = useRef<RecordingOverlayPhase>("idle");
   const [overlayPhase, setOverlayPhaseState] = useState<RecordingOverlayPhase>("idle");
@@ -1280,6 +1311,7 @@ function RecordingGridExperience() {
   const overlayWidth = useSpring(1, RECORDING_SPRING);
   const overlayHeight = useSpring(1, RECORDING_SPRING);
   const overlayRadius = useSpring(14, RECORDING_SPRING);
+  const overlayScale = useSpring(1, RECORDING_SPRING);
 
   const setOverlayPhase = (phase: RecordingOverlayPhase) => {
     overlayPhaseRef.current = phase;
@@ -1322,6 +1354,7 @@ function RecordingGridExperience() {
     overlayWidth.jump(frame.width);
     overlayHeight.jump(frame.height);
     overlayRadius.jump(frame.radius);
+    overlayScale.jump(1);
   };
 
   const seedReleaseVelocity = (velocityX: number, velocityY: number) => {
@@ -1337,6 +1370,7 @@ function RecordingGridExperience() {
     overlayWidth.set(frame.width);
     overlayHeight.set(frame.height);
     overlayRadius.set(frame.radius);
+    overlayScale.set(1);
   };
 
   const frameForTile = (index: number) => {
@@ -1357,11 +1391,16 @@ function RecordingGridExperience() {
 
     const target = frameForTile(index) ?? sourceFrame.current;
     if (!target) return false;
+    const renderedRect = activeCardRef.current?.getBoundingClientRect();
+    const renderedScale = overlayScale.get();
+    const renderedFrame = renderedRect
+      ? frameFromRect(renderedRect, overlayRadius.get() * renderedScale)
+      : currentFrame();
     const flight: RecordingReturnFlight = {
       id: ++nextReturnFlightId.current,
       recording,
       index,
-      from: currentFrame(),
+      from: renderedFrame,
       to: target,
       velocityX: velocityX || overlayX.getVelocity(),
       velocityY: velocityY || overlayY.getVelocity(),
@@ -1369,6 +1408,7 @@ function RecordingGridExperience() {
       velocityHeight: overlayHeight.getVelocity(),
       velocityRadius: overlayRadius.getVelocity(),
       playbackTime: activeVideoRef.current?.currentTime ?? 0,
+      frameDataUrl: captureRecordingFrame(activeVideoRef.current),
     };
 
     setReturnFlights((flights) => [...flights, flight]);
@@ -1630,8 +1670,10 @@ function RecordingGridExperience() {
         + resistedY
         + (gesture.frame.height - height) * gesture.originY,
     );
-    overlayWidth.jump(width);
-    overlayHeight.jump(height);
+    // Keep the decoded video surface at a stable size while dragging. Scaling
+    // the already-composited card avoids reallocating the video every frame,
+    // which was the source of the visible flashes during pull-down.
+    overlayScale.jump(scale);
     overlayRadius.jump(12 + progress * 8);
   };
 
@@ -1769,6 +1811,7 @@ function RecordingGridExperience() {
           ))}
           {overlayRecording && overlayPhase !== "idle" && activeIndex !== null ? (
             <motion.div
+              ref={activeCardRef}
               className="recording-overlay-card recording-overlay-card-active"
               role="dialog"
               aria-label={`Expanded grass study recording IMG_${overlayRecording}`}
@@ -1779,6 +1822,8 @@ function RecordingGridExperience() {
                 width: overlayWidth,
                 height: overlayHeight,
                 borderRadius: overlayRadius,
+                scale: overlayScale,
+                transformOrigin: "top left",
               }}
               onPointerDown={onOverlayPointerDown}
               onPointerMove={onOverlayPointerMove}
