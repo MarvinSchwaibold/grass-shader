@@ -6,6 +6,7 @@ import {
   useState,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
 } from "react";
 import { motion, useMotionValueEvent, useSpring } from "motion/react";
 import { useDialKit } from "dialkit";
@@ -142,14 +143,17 @@ void main() {
   float terrainX = terrainShape(aRoot.xz + vec2(0.16, 0.0));
   float terrainZ = terrainShape(aRoot.xz + vec2(0.0, 0.16));
   // DialKit's authored terrain value is 2.0. Zero removes all relief and
-  // values above 2.0 exaggerate the exact same height field.
+  // values above 2.0 exaggerate the exact same height field. The nonlinear
+  // upper range makes the far-right state intentionally tall and spiky while
+  // preserving the authored midpoint exactly.
   float authoredTerrainStrength = mix(0.58, 0.43, secondStudy);
-  float terrainStrength = authoredTerrainStrength * (uTerrainDepth * 0.5);
+  float depthScale = pow(max(uTerrainDepth * 0.5, 0.0), 1.35);
+  float terrainStrength = authoredTerrainStrength * depthScale;
   float terrainY = (terrainLevel - 0.5) * terrainStrength;
-  // Depth controls root elevation. Surface orientation reaches its authored
-  // state at 2.0 and then stays there, so exaggerated hills do not force the
-  // blades progressively flatter as their elevation continues to increase.
-  float orientationStrength = authoredTerrainStrength * min(uTerrainDepth * 0.5, 1.0);
+  // Terrain Depth owns elevation only. Blade drape and rest direction remain
+  // stable while the hill roots move up and down, so raising the terrain can
+  // never make the vegetation look flatter.
+  float orientationStrength = authoredTerrainStrength;
   vec2 terrainGradient = vec2(terrainX - terrainLevel, terrainZ - terrainLevel) * orientationStrength / 0.16;
   vec3 terrainNormal = normalize(vec3(-terrainGradient.x, 1.0, -terrainGradient.y));
   float slopeAmount = smoothstep(0.018, 0.18, length(terrainGradient));
@@ -293,7 +297,7 @@ void main() {
 
   // This is real height-field deformation of the tessellated terrain mesh.
   // 0.0 is planar, 2.0 is the authored relief, and 4.0 is twice that relief.
-  float authoredDepth = uTerrainDepth * 0.5;
+  float authoredDepth = pow(max(uTerrainDepth * 0.5, 0.0), 1.35);
   float height = (vTerrainLevel - 0.5) * authoredDepth;
   vec2 clip = aTerrainUV * 2.0 - 1.0;
 
@@ -327,7 +331,7 @@ void main() {
   float levelX = terrainShape(vTerrainUV + vec2(texel.x * 2.0, 0.0));
   float levelY = terrainShape(vTerrainUV + vec2(0.0, texel.y * 2.0));
   vec2 gradient = vec2(levelX - level, levelY - level) / max(texel * 2.0, vec2(0.0001));
-  float authoredDepth = uTerrainDepth * 0.5;
+  float authoredDepth = pow(max(uTerrainDepth * 0.5, 0.0), 1.35);
   vec3 normal = normalize(vec3(-gradient.x * 0.020 * authoredDepth, 1.0,
     -gradient.y * 0.020 * authoredDepth));
   vec3 sun = normalize(vec3(-0.54, 0.78, 0.32));
@@ -1148,6 +1152,14 @@ function RecordingGridExperience() {
     startX: 0,
     startY: 0,
     axis: "pending" as "pending" | "vertical" | "horizontal",
+    samples: [] as Array<{ x: number; y: number; time: number }>,
+  });
+  const gridWheelGesture = useRef({
+    index: -1,
+    distance: 0,
+    velocity: 0,
+    lastTime: 0,
+    timer: null as ReturnType<typeof setTimeout> | null,
   });
   const overlayGesture = useRef({
     pointerId: -1,
@@ -1164,6 +1176,7 @@ function RecordingGridExperience() {
   const [overlayPhase, setOverlayPhaseState] = useState<RecordingOverlayPhase>("idle");
   const [overlayRecording, setOverlayRecording] = useState<string | null>(null);
   const [gridPull, setGridPull] = useState<GridPull | null>(null);
+  const [gridReleaseVelocity, setGridReleaseVelocity] = useState(0);
 
   const overlayX = useSpring(0, RECORDING_SPRING);
   const overlayY = useSpring(0, RECORDING_SPRING);
@@ -1295,6 +1308,12 @@ function RecordingGridExperience() {
     };
   });
 
+  useEffect(() => () => {
+    if (gridWheelGesture.current.timer) {
+      clearTimeout(gridWheelGesture.current.timer);
+    }
+  }, []);
+
   const onTilePointerDown = (
     index: number,
     event: ReactPointerEvent<HTMLButtonElement>,
@@ -1306,7 +1325,9 @@ function RecordingGridExperience() {
       startX: event.clientX,
       startY: event.clientY,
       axis: "pending",
+      samples: [{ x: event.clientX, y: event.clientY, time: performance.now() }],
     };
+    setGridReleaseVelocity(0);
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
@@ -1318,6 +1339,11 @@ function RecordingGridExperience() {
     if (gesture.pointerId !== event.pointerId || gesture.index !== index) return;
     const deltaX = event.clientX - gesture.startX;
     const deltaY = event.clientY - gesture.startY;
+    const now = performance.now();
+    gesture.samples.push({ x: event.clientX, y: event.clientY, time: now });
+    while (gesture.samples.length > 2 && now - gesture.samples[0].time > 100) {
+      gesture.samples.shift();
+    }
 
     // Fluid Bookshelf intent rule: a clear five-pixel downward component owns
     // the gesture even when the diagonal motion is horizontally dominant.
@@ -1326,6 +1352,7 @@ function RecordingGridExperience() {
       gesture.axis = "horizontal";
     }
     if (gesture.axis !== "vertical") return;
+    event.preventDefault();
 
     const resistedY = rubberBandDistance(deltaY, window.innerHeight);
     setGridPull({
@@ -1349,11 +1376,69 @@ function RecordingGridExperience() {
     }
     const wasPulling = gesture.axis === "vertical";
     const wasHorizontal = gesture.axis === "horizontal";
+    const first = gesture.samples[0];
+    const last = gesture.samples[gesture.samples.length - 1];
+    const elapsed = Math.max((last?.time ?? 0) - (first?.time ?? 0), 1);
+    const velocityY = first && last ? (last.y - first.y) / elapsed * 1000 : 0;
     tileGesture.current.pointerId = -1;
     tileGesture.current.index = -1;
     tileGesture.current.axis = "pending";
+    tileGesture.current.samples = [];
+    if (wasPulling) setGridReleaseVelocity(velocityY);
     setGridPull(null);
     if (!cancelled && !wasPulling && !wasHorizontal) openRecording(recording, index);
+  };
+
+  const onGridWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    if (overlayPhaseRef.current !== "idle") return;
+    const tile = (event.target as Element).closest<HTMLButtonElement>(
+      ".recording-grid-item",
+    );
+    if (!tile) return;
+    const index = Number(tile.dataset.gridIndex);
+    if (!Number.isFinite(index)) return;
+
+    const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+      ? 16
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+        ? window.innerHeight
+        : 1;
+    const pullDelta = -event.deltaY * unit;
+    const gesture = gridWheelGesture.current;
+    const now = performance.now();
+    const startsSequence = gesture.index < 0 || now - gesture.lastTime > 140;
+    if (startsSequence) {
+      if (pullDelta <= 0 || Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
+      gesture.index = index;
+      gesture.distance = 0;
+      gesture.velocity = 0;
+      setGridReleaseVelocity(0);
+    }
+    if (gesture.index !== index) return;
+
+    event.preventDefault();
+    const elapsed = gesture.lastTime > 0 ? Math.max(now - gesture.lastTime, 8) : 16;
+    gesture.lastTime = now;
+    gesture.velocity = pullDelta / elapsed * 1000;
+    gesture.distance = Math.max(0, gesture.distance + pullDelta);
+    const resistedY = rubberBandDistance(gesture.distance, window.innerHeight);
+    setGridPull({
+      index,
+      deltaX: 0,
+      deltaY: resistedY,
+      progress: clamp01(gesture.distance / Math.max(window.innerHeight * .28, 1)),
+    });
+
+    if (gesture.timer) clearTimeout(gesture.timer);
+    gesture.timer = setTimeout(() => {
+      setGridReleaseVelocity(gesture.velocity);
+      setGridPull(null);
+      gesture.index = -1;
+      gesture.distance = 0;
+      gesture.velocity = 0;
+      gesture.lastTime = 0;
+      gesture.timer = null;
+    }, 95);
   };
 
   const onOverlayPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -1470,7 +1555,7 @@ function RecordingGridExperience() {
       className="recording-grid-experience"
       aria-label="Six original grass study recordings"
     >
-      <div className="grass-stage recording-grid-stage">
+      <div className="grass-stage recording-grid-stage" onWheel={onGridWheel}>
         {STUDY_RECORDINGS.map((recording, index) => {
           const movement = tileMotion(index);
           return (
@@ -1482,11 +1567,22 @@ function RecordingGridExperience() {
               className="recording-grid-item"
               type="button"
               key={recording}
+              data-grid-index={index}
               aria-label={`Open grass study recording IMG_${recording}`}
               animate={movement}
               transition={gridPull
                 ? { duration: 0 }
-                : { type: "spring", stiffness: 440, damping: 28, mass: .8 }}
+                : {
+                  x: { type: "spring", stiffness: 420, damping: 25, mass: .82 },
+                  y: {
+                    type: "spring",
+                    stiffness: 420,
+                    damping: 25,
+                    mass: .82,
+                    velocity: gridReleaseVelocity,
+                  },
+                  scale: { type: "spring", stiffness: 420, damping: 25, mass: .82 },
+                }}
               onPointerDown={(event) => onTilePointerDown(index, event)}
               onPointerMove={(event) => onTilePointerMove(index, event)}
               onPointerUp={(event) => finishTileGesture(recording, index, event)}
