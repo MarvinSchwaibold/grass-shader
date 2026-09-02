@@ -147,7 +147,10 @@ void main() {
   // upper range makes the far-right state intentionally tall and spiky while
   // preserving the authored midpoint exactly.
   float authoredTerrainStrength = mix(0.58, 0.43, secondStudy);
-  float depthScale = pow(max(uTerrainDepth * 0.5, 0.0), 1.35);
+  float depthInput = max(uTerrainDepth * 0.5, 0.0);
+  float depthScale = depthInput <= 1.0
+    ? pow(depthInput, 1.55)
+    : 1.0 + pow(depthInput - 1.0, 1.15) * 4.5;
   float terrainStrength = authoredTerrainStrength * depthScale;
   float terrainY = (terrainLevel - 0.5) * terrainStrength;
   // Terrain Depth owns elevation only. Blade drape and rest direction remain
@@ -297,7 +300,10 @@ void main() {
 
   // This is real height-field deformation of the tessellated terrain mesh.
   // 0.0 is planar, 2.0 is the authored relief, and 4.0 is twice that relief.
-  float authoredDepth = pow(max(uTerrainDepth * 0.5, 0.0), 1.35);
+  float depthInput = max(uTerrainDepth * 0.5, 0.0);
+  float authoredDepth = depthInput <= 1.0
+    ? pow(depthInput, 1.55)
+    : 1.0 + pow(depthInput - 1.0, 1.15) * 4.5;
   float height = (vTerrainLevel - 0.5) * authoredDepth;
   vec2 clip = aTerrainUV * 2.0 - 1.0;
 
@@ -331,7 +337,10 @@ void main() {
   float levelX = terrainShape(vTerrainUV + vec2(texel.x * 2.0, 0.0));
   float levelY = terrainShape(vTerrainUV + vec2(0.0, texel.y * 2.0));
   vec2 gradient = vec2(levelX - level, levelY - level) / max(texel * 2.0, vec2(0.0001));
-  float authoredDepth = pow(max(uTerrainDepth * 0.5, 0.0), 1.35);
+  float depthInput = max(uTerrainDepth * 0.5, 0.0);
+  float authoredDepth = depthInput <= 1.0
+    ? pow(depthInput, 1.55)
+    : 1.0 + pow(depthInput - 1.0, 1.15) * 4.5;
   vec3 normal = normalize(vec3(-gradient.x * 0.020 * authoredDepth, 1.0,
     -gradient.y * 0.020 * authoredDepth));
   vec3 sun = normalize(vec3(-0.54, 0.78, 0.32));
