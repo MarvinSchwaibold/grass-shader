@@ -12,7 +12,10 @@ struct LoopingVideoView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> PlayerSurfaceView {
         let view = PlayerSurfaceView()
-        view.backgroundColor = .black
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        view.playerLayer.backgroundColor = UIColor.clear.cgColor
+        view.playerLayer.isOpaque = false
         view.playerLayer.videoGravity = .resizeAspectFill
         view.playerLayer.player = context.coordinator.player
         context.coordinator.player?.play()

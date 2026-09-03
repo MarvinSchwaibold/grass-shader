@@ -1859,23 +1859,36 @@ function RecordingGridExperience() {
 export function OrnamentalGrass() {
   const ref = useRef<HTMLCanvasElement>(null);
   const windAmount = useRef(windAmountFromStrength(DEFAULT_WIND_STRENGTH));
+  const isNativeMobile = typeof window !== "undefined"
+    && new URLSearchParams(window.location.search).get("native") === "1";
+  const mobileDefaults = isNativeMobile
+    ? { overall: 1.18, base: 1.49, length: 1.30, terrainDepth: .48 }
+    : { overall: 1, base: 1, length: 1, terrainDepth: 2 };
   const studyControls = useDialKit("Grass Study", {
     blade: {
-      overall: [1, .5, 1.5, .01],
-      base: [1, .25, 2, .01],
-      length: [1, .25, 2, .01],
+      overall: [mobileDefaults.overall, .5, 1.5, .01],
+      base: [mobileDefaults.base, .25, 2, .01],
+      length: [mobileDefaults.length, .25, 2, .01],
     },
     terrain: {
-      terrainDepth: [2, 0, 4, .01],
+      terrainDepth: [mobileDefaults.terrainDepth, 0, 4, .01],
       showGrass: true,
     },
   }, {
-    // A new id prevents the old value-only depth default from being restored.
-    id: "grass-study-controls-v3",
-    persist: true,
+    // The native WebView gets its own exact, non-persisted launch values while
+    // the desktop control panel keeps its current saved state.
+    id: isNativeMobile ? "grass-study-native-v1" : "grass-study-controls-v3",
+    persist: !isNativeMobile,
   });
-  const bladeLengths = useRef({ overall: 1, base: 1, mounds: 1 });
-  const terrainControls = useRef({ depth: 2, showGrass: true });
+  const bladeLengths = useRef({
+    overall: mobileDefaults.overall,
+    base: mobileDefaults.base,
+    mounds: mobileDefaults.length,
+  });
+  const terrainControls = useRef({
+    depth: mobileDefaults.terrainDepth,
+    showGrass: true,
+  });
   bladeLengths.current = {
     overall: studyControls.blade.overall,
     base: studyControls.blade.base,

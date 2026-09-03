@@ -41,6 +41,7 @@ body,
   height: 100% !important;
 }
 
+.recording-grid-experience,
 .reference-experience {
   display: none !important;
 }

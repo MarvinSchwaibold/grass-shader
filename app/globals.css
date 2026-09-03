@@ -302,7 +302,7 @@ body {
 
 .grass-stage {
   position: relative;
-  height: min(calc(100svh - 142px), 920px, calc(59.77vw - 42px));
+  height: min(calc(100svh - 142px), 920px, calc(57.25vw - 42px));
   margin: 0;
   aspect-ratio: 832 / 1492;
   overflow: hidden;

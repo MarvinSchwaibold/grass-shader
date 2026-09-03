@@ -152,7 +152,7 @@ private final class LocalWebServer {
                     switch state {
                     case .ready:
                         guard let port = listener.port,
-                              let url = URL(string: "http://127.0.0.1:\(port.rawValue)/index.html")
+                              let url = URL(string: "http://127.0.0.1:\(port.rawValue)/index.html?native=1")
                         else { return }
                         pageURL = url
                         let callbacks = pending
