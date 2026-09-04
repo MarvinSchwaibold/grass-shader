@@ -1856,7 +1856,11 @@ function RecordingGridExperience() {
   );
 }
 
-export function OrnamentalGrass() {
+export function OrnamentalGrass({
+  showRecordingGrid = true,
+}: {
+  showRecordingGrid?: boolean;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   const windAmount = useRef(windAmountFromStrength(DEFAULT_WIND_STRENGTH));
   const isNativeMobile = typeof window !== "undefined"
@@ -1926,8 +1930,8 @@ export function OrnamentalGrass() {
     setWindStrength(next);
   };
   return (
-    <div className="grass-comparison">
-      <RecordingGridExperience />
+    <div className={`grass-comparison${showRecordingGrid ? "" : " grass-comparison--two-panel"}`}>
+      {showRecordingGrid ? <RecordingGridExperience /> : null}
       <section className="grass-experience" aria-label="Generated grass simulation">
         <div className="generated-stage-shell">
           <figure className="grass-stage generated-stage">

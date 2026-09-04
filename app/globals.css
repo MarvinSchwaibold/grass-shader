@@ -17,6 +17,38 @@ body {
   background: #ffffff;
 }
 
+.demo-index {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: 24px;
+  background: #ffffff;
+}
+
+.demo-index__links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.demo-index__link {
+  color: #20211f;
+  font: 500 14px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  letter-spacing: -.025em;
+  text-decoration: none;
+  transition: opacity 150ms ease;
+}
+
+.demo-index__link:hover {
+  opacity: .5;
+}
+
+.demo-index__link:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid #20211f;
+  outline-offset: 5px;
+}
+
 /* Give the expanded DialKit panel breathing room after its final control. */
 .dialkit-panel-inner:not([data-collapsed="true"]) {
   padding-bottom: 16px;
@@ -35,6 +67,18 @@ body {
   grid-template-columns: repeat(3, auto);
   align-items: start;
   gap: 28px;
+}
+
+.grass-comparison--two-panel {
+  grid-template-columns: repeat(2, auto);
+}
+
+.grass-comparison--two-panel .reference-experience {
+  order: 1;
+}
+
+.grass-comparison--two-panel .grass-experience {
+  order: 2;
 }
 
 .grass-experience {
