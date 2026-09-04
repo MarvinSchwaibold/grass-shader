@@ -1866,7 +1866,7 @@ export function OrnamentalGrass({
   const isNativeMobile = typeof window !== "undefined"
     && new URLSearchParams(window.location.search).get("native") === "1";
   const mobileDefaults = isNativeMobile
-    ? { overall: 1.18, base: 1.49, length: 1.30, terrainDepth: .48 }
+    ? { overall: 1.25, base: 2, length: 1.40, terrainDepth: .48 }
     : { overall: 1, base: 1, length: 1, terrainDepth: 2 };
   const studyControls = useDialKit("Grass Study", {
     blade: {
