@@ -213,52 +213,6 @@ body {
   z-index: 2;
 }
 
-.bloom-toggle {
-  position: absolute;
-  z-index: 4;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 82px;
-  height: 29px;
-  padding: 0 10px;
-  border: 3px solid #ffffff;
-  border-radius: 14px;
-  background: rgb(241 241 239 / 92%);
-  color: #20211f;
-  box-shadow: 0 8px 24px rgb(18 25 17 / 10%);
-  font: 500 8.8px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  letter-spacing: -.02em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: color 180ms ease, background-color 180ms ease, transform 180ms ease;
-}
-
-.bloom-toggle:hover {
-  transform: scale(1.025);
-}
-
-.bloom-toggle:active {
-  transform: scale(.97);
-}
-
-.bloom-toggle.is-full {
-  background: #050505;
-  color: #ffffff;
-}
-
-.bloom-toggle:focus-visible {
-  outline: 2px solid #ffffff;
-  outline-offset: 3px;
-}
-
-.bloom-toggle__value {
-  margin-left: 12px;
-  opacity: .62;
-}
-
 .wind-drawer {
   --wind-fill: 50%;
   --wind-pull: 0px;
@@ -606,15 +560,6 @@ body {
     left: 11%;
     width: 78%;
     padding: 3px;
-  }
-  .bloom-toggle {
-    top: 10px;
-    right: 10px;
-    min-width: 76px;
-    height: 24px;
-    padding-inline: 8px;
-    border-width: 2px;
-    border-radius: 12px;
   }
   .wind-control__filled-label,
   .wind-control__label { left: 10px; }
