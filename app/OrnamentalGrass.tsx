@@ -616,6 +616,116 @@ void main() {
   outColor = vec4(color, 1.0);
 }`;
 
+const flowerVertex = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aFlower;
+layout(location=1) in vec4 aRoot;
+layout(location=2) in vec4 aShape;
+uniform mat4 uVP;
+uniform float uTime;
+uniform float uWindScale;
+uniform float uTerrainDepth;
+uniform float uBloom;
+uniform sampler2D uTerrain;
+out vec2 vFlower;
+out float vKind;
+out float vVisibility;
+out float vLight;
+
+vec2 terrainUV(vec2 xz) {
+  return vec2((xz.x + 10.0) / 20.0, (12.0 - xz.y) / 34.0);
+}
+
+float terrainShape(vec2 xz) {
+  vec3 sampleColor = textureLod(uTerrain, clamp(terrainUV(xz), 0.0, 1.0), 5.0).rgb;
+  float luminance = dot(sampleColor, vec3(0.2126, 0.7152, 0.0722));
+  return smoothstep(0.19, 0.76, luminance);
+}
+
+void main() {
+  float terrainLevel = terrainShape(aRoot.xz);
+  float depthInput = max(uTerrainDepth * 0.5, 0.0);
+  float depthScale = depthInput <= 1.0
+    ? pow(depthInput, 1.55)
+    : 1.0 + pow(depthInput - 1.0, 1.15) * 4.5;
+  float terrainY = (terrainLevel - 0.5) * 0.58 * depthScale;
+
+  // Each plant owns a reveal threshold. Moving between the two bloom states
+  // grows individual flowers in sequence instead of fading a flat overlay.
+  float visibility = smoothstep(aRoot.w - 0.13, aRoot.w + 0.07, uBloom);
+  float growth = mix(0.18, 1.0, visibility);
+  float height = aRoot.y * growth;
+  float t = aFlower.y;
+
+  vec2 windDirection = normalize(vec2(0.78, 0.63));
+  float gust = 0.54 + 0.46 * sin(
+    dot(aRoot.xz, vec2(0.46, -0.31)) - uTime * 1.34 + aShape.y
+  );
+  float flutter = sin(uTime * 2.9 + aShape.y * 1.73) * 0.5 + 0.5;
+  float wind = clamp(uWindScale * (0.045 + gust * 0.105 + flutter * 0.025), 0.02, 0.72);
+  vec2 sway = windDirection * height * wind * pow(t, 1.75);
+  sway += vec2(-windDirection.y, windDirection.x)
+    * sin(uTime * 2.15 + aShape.y) * height * 0.018 * t;
+
+  vec3 world = vec3(aRoot.x, terrainY, aRoot.z);
+  world.xz += sway;
+  world.y += height * t;
+  // The study camera is centered, so world X is also the stable billboard axis.
+  world.x += aFlower.x * aShape.x * mix(0.55, 1.0, visibility);
+
+  vFlower = aFlower;
+  vKind = aShape.z;
+  vVisibility = visibility;
+  vLight = mix(0.82, 1.12, terrainLevel) * mix(0.92, 1.08, aShape.w);
+  gl_Position = uVP * vec4(world, 1.0);
+}`;
+
+const flowerFragment = `#version 300 es
+precision highp float;
+in vec2 vFlower;
+in float vKind;
+in float vVisibility;
+in float vLight;
+out vec4 outColor;
+
+void main() {
+  float stemWidth = mix(0.035, 0.052, smoothstep(0.0, 0.72, vFlower.y));
+  float stem = (1.0 - smoothstep(stemWidth, stemWidth + 0.018, abs(vFlower.x)))
+    * (1.0 - smoothstep(0.69, 0.735, vFlower.y));
+
+  // Two small opposing leaves interrupt the stem silhouette without turning
+  // the flower into a large foreground graphic.
+  vec2 lowerLeafPoint = vec2((vFlower.x + 0.14) * 4.2, (vFlower.y - 0.39) * 11.0);
+  vec2 upperLeafPoint = vec2((vFlower.x - 0.13) * 4.5, (vFlower.y - 0.53) * 12.0);
+  float lowerLeaf = 1.0 - smoothstep(0.72, 0.94,
+    length(lowerLeafPoint) + lowerLeafPoint.x * 0.34);
+  float upperLeaf = 1.0 - smoothstep(0.70, 0.92,
+    length(upperLeafPoint) - upperLeafPoint.x * 0.32);
+  float greenery = max(stem, max(lowerLeaf, upperLeaf) * 0.84);
+
+  vec2 p = vec2(vFlower.x, (vFlower.y - 0.84) * 4.6);
+  float radius = length(p);
+  float angle = atan(p.y, p.x);
+  float petals = 8.0 + step(0.72, vKind) * 2.0;
+  float petalEdge = 0.54 + 0.19 * cos(angle * petals + vKind * 7.0);
+  float bloom = 1.0 - smoothstep(petalEdge - 0.055, petalEdge + 0.035, radius);
+  float center = 1.0 - smoothstep(0.15, 0.23, radius);
+
+  float mask = max(greenery, bloom) * vVisibility;
+  if (mask < 0.012) discard;
+
+  vec3 stemColor = mix(vec3(0.105, 0.235, 0.070), vec3(0.31, 0.47, 0.12), vFlower.y);
+  vec3 lavender = mix(vec3(0.57, 0.49, 0.72), vec3(0.83, 0.79, 0.91),
+    smoothstep(0.22, 0.72, radius));
+  vec3 coral = mix(vec3(0.69, 0.20, 0.16), vec3(0.94, 0.47, 0.32),
+    smoothstep(0.18, 0.72, radius));
+  vec3 petalColor = mix(lavender, coral, step(0.76, vKind));
+  vec3 color = mix(stemColor, petalColor, bloom);
+  color = mix(color, vec3(0.94, 0.72, 0.18), center);
+  color *= vLight;
+  outColor = vec4(color, clamp(mask, 0.0, 1.0));
+}`;
+
 type Vec3 = [number, number, number];
 type Clump = [
   number, number, number, number, number,
@@ -1053,6 +1163,64 @@ function terrainGeometry(gl: WebGL2RenderingContext) {
   return { vao, vertexBuffer, indexBuffer, count: indices.length };
 }
 
+function flowerGeometry(gl: WebGL2RenderingContext) {
+  const vao = gl.createVertexArray();
+  const flowerBuffer = gl.createBuffer();
+  const instanceBuffer = gl.createBuffer();
+  if (!vao || !flowerBuffer || !instanceBuffer) {
+    throw new Error("Flower geometry allocation failed");
+  }
+
+  const flower = new Float32Array([
+    -1, 0, 1, 0,
+    -1, 1, 1, 1,
+  ]);
+  const patches = [
+    [-4.35, -14.4], [-1.25, -11.3], [3.25, -13.0],
+    [-3.15, -6.8], [1.55, -5.0], [4.25, -7.2],
+    [-4.15, -0.2], [-0.45, 1.9], [3.65, 0.2],
+    [-2.35, 5.8], [2.05, 6.7],
+  ] as const;
+  const count = 52;
+  const instances = new Float32Array(count * 8);
+  for (let index = 0; index < count; index += 1) {
+    const patch = patches[index % patches.length];
+    const offset = index * 8;
+    const x = Math.max(-5.85, Math.min(5.85,
+      patch[0] + (seeded(index, 81) - .5) * 3.05
+    ));
+    const z = Math.max(-17.8, Math.min(8.2,
+      patch[1] + (seeded(index, 82) - .5) * 4.25
+    ));
+    const height = 1.08 + seeded(index, 83) * .98;
+    const threshold = .06 + seeded(index, 84) * .91;
+    const width = .20 + seeded(index, 85) * .12;
+    const phase = seeded(index, 86) * Math.PI * 2;
+    // Most plants are pale lavender; a small tail becomes the coral accent.
+    const kind = seeded(index, 87);
+    const light = seeded(index, 88);
+    instances.set([x, height, z, threshold, width, phase, kind, light], offset);
+  }
+
+  gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, flowerBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flower, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, instances, gl.STATIC_DRAW);
+  const stride = 8 * Float32Array.BYTES_PER_ELEMENT;
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(1, 4, gl.FLOAT, false, stride, 0);
+  gl.vertexAttribDivisor(1, 1);
+  gl.enableVertexAttribArray(2);
+  gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 4 * Float32Array.BYTES_PER_ELEMENT);
+  gl.vertexAttribDivisor(2, 1);
+  gl.bindVertexArray(null);
+
+  return { vao, flowerBuffer, instanceBuffer, count };
+}
+
 function createTerrainTexture(gl: WebGL2RenderingContext, source: string) {
   const texture = gl.createTexture();
   if (!texture) throw new Error("Terrain texture allocation failed");
@@ -1112,6 +1280,7 @@ function start(
   windAmount: { current: number },
   bladeLengths: { current: { overall: number; base: number; mounds: number } },
   terrainControls: { current: { depth: number; showGrass: boolean } },
+  flowerControls: { current: { bloom: number } },
   study: StudyId,
 ) {
   const gl = canvas.getContext("webgl2",{antialias:true,alpha:false,depth:true,powerPreference:"high-performance"});
@@ -1120,6 +1289,7 @@ function start(
   const camera: Vec3 = [0,10.2,8.0];
   const grassProgram = program(gl,grassVertex,grassFragment);
   const terrainProgram = program(gl,terrainVertex,terrainFragment);
+  const flowerProgram = program(gl,flowerVertex,flowerFragment);
   const mobile = matchMedia("(max-width:700px)").matches;
   const baseGrass = baseGrassGeometry(
     gl,
@@ -1132,6 +1302,7 @@ function start(
     study,
   );
   const terrainMesh = terrainGeometry(gl);
+  const flowers = flowerGeometry(gl);
   const terrain = createTerrainTexture(
     gl,
     secondStudy ? "/IMG_7401-terrain.png" : "/topography-terrain.png",
@@ -1166,17 +1337,25 @@ function start(
   const terrainTextureUniform = gl.getUniformLocation(terrainProgram,"uTerrain");
   const terrainVisualUniform = gl.getUniformLocation(terrainProgram,"uTerrainVisual");
   const terrainDepthUniform = gl.getUniformLocation(terrainProgram,"uTerrainDepth");
+  const flowerVP = gl.getUniformLocation(flowerProgram,"uVP");
+  const flowerTerrain = gl.getUniformLocation(flowerProgram,"uTerrain");
+  const flowerTime = gl.getUniformLocation(flowerProgram,"uTime");
+  const flowerWindScale = gl.getUniformLocation(flowerProgram,"uWindScale");
+  const flowerTerrainDepth = gl.getUniformLocation(flowerProgram,"uTerrainDepth");
+  const flowerBloom = gl.getUniformLocation(flowerProgram,"uBloom");
   if (
     !grassVP || !grassTerrain || !referenceColorFieldUniform || !generatedGradientFieldUniform
     || !resolutionUniform || !time || !windScale || !bladeLengthScale || !grassTerrainDepth
     || !studyUniform || !cameraUniform || !terrainTextureUniform
-    || !terrainVisualUniform || !terrainDepthUniform
+    || !terrainVisualUniform || !terrainDepthUniform || !flowerVP || !flowerTerrain
+    || !flowerTime || !flowerWindScale || !flowerTerrainDepth || !flowerBloom
   ) {
     throw new Error("Missing uniforms");
   }
 
   let frame = 0;
   let windClock = 0;
+  let renderedBloom = flowerControls.current.bloom;
   let previousFrame = performance.now();
   const render = (now: number) => {
     const delta = Math.min(Math.max((now - previousFrame) / 1000,0),.05);
@@ -1236,6 +1415,23 @@ function start(
     gl.bindVertexArray(moundGrass.vao);
     gl.uniform1f(bladeLengthScale,liveLengths.overall * liveLengths.mounds);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,moundGrass.vertices,moundGrass.count);
+
+    renderedBloom += (flowerControls.current.bloom - renderedBloom)
+      * (1 - Math.exp(-delta * 5.8));
+    gl.useProgram(flowerProgram);
+    gl.uniformMatrix4fv(flowerVP,false,vp);
+    gl.uniform1i(flowerTerrain,0);
+    gl.uniform1f(flowerTime,windClock);
+    gl.uniform1f(flowerWindScale,amount);
+    gl.uniform1f(flowerTerrainDepth,liveTerrain.depth);
+    gl.uniform1f(flowerBloom,renderedBloom);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
+    gl.bindVertexArray(flowers.vao);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,flowers.count);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
     frame=requestAnimationFrame(render);
   };
   frame=requestAnimationFrame(render);
@@ -1250,6 +1446,9 @@ function start(
     gl.deleteBuffer(terrainMesh.vertexBuffer);
     gl.deleteBuffer(terrainMesh.indexBuffer);
     gl.deleteVertexArray(terrainMesh.vao);
+    gl.deleteBuffer(flowers.flowerBuffer);
+    gl.deleteBuffer(flowers.instanceBuffer);
+    gl.deleteVertexArray(flowers.vao);
     terrain.image.onload = null;
     gl.deleteTexture(terrain.texture);
     terrainVisual.image.onload = null;
@@ -1260,6 +1459,7 @@ function start(
     gl.deleteTexture(generatedGradientField.texture);
     gl.deleteProgram(grassProgram);
     gl.deleteProgram(terrainProgram);
+    gl.deleteProgram(flowerProgram);
   };
 }
 
@@ -1893,6 +2093,7 @@ export function OrnamentalGrass({
     depth: mobileDefaults.terrainDepth,
     showGrass: true,
   });
+  const flowerControls = useRef({ bloom: .34 });
   bladeLengths.current = {
     overall: studyControls.blade.overall,
     base: studyControls.blade.base,
@@ -1913,11 +2114,22 @@ export function OrnamentalGrass({
   const activeStudy: StudyId = "study-7400";
   const [activeReferenceId, setActiveReferenceId] = useState("recording");
   const [windStrength, setWindStrength] = useState(DEFAULT_WIND_STRENGTH);
+  const [fullBloom, setFullBloom] = useState(false);
   const [elasticPull, setElasticPull] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  flowerControls.current.bloom = fullBloom ? .91 : .34;
   useEffect(() => {
     if (!ref.current) return;
-    try { return start(ref.current,windAmount,bladeLengths,terrainControls,activeStudy); }
+    try {
+      return start(
+        ref.current,
+        windAmount,
+        bladeLengths,
+        terrainControls,
+        flowerControls,
+        activeStudy,
+      );
+    }
     catch (error) { console.error("Unable to start the ornamental grass field",error); }
   },[activeStudy]);
   const activeReference = REFERENCE_MEDIA.find((media) => media.id === activeReferenceId)
@@ -1947,6 +2159,16 @@ export function OrnamentalGrass({
               coastal wind.
             </figcaption>
           </figure>
+          <button
+            type="button"
+            className={`bloom-toggle${fullBloom ? " is-full" : ""}`}
+            aria-pressed={fullBloom}
+            aria-label={`Show ${fullBloom ? "fewer" : "more"} flowers`}
+            onClick={() => setFullBloom((current) => !current)}
+          >
+            <span>Bloom</span>
+            <span className="bloom-toggle__value">{fullBloom ? "More" : "Few"}</span>
+          </button>
           <div
             className={`wind-drawer${isDragging ? " is-dragging" : ""}`}
             style={{
