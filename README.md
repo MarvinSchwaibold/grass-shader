@@ -1,100 +1,91 @@
-# vinext-starter
+# Grass Shader
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+A real-time WebGL2 study of ornamental grass moving in coastal wind, paired with the original reference recordings. Fine grass blades, layered gusts, and carefully placed mounds are rendered procedurally.
 
-## Prerequisites
+The project includes a desktop web demo and a native iPhone app with bundled footage and an offline copy of the shader.
 
-- Node.js `>=22.13.0`
+![Reference footage and the restored grass shader](docs/preview.png)
 
-## Quick Start
+## Run on your computer
 
-```bash
-npm install
+Install **Node.js 22.13 or newer** (Node 22 LTS recommended), then:
+
+```sh
+git clone https://github.com/MarvinSchwaibold/grass-shader.git
+cd grass-shader
+npm ci
 npm run dev
-npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
+Open **http://localhost:5207/demo-one**.
 
-## Included Shape
+| Route | View |
+| --- | --- |
+| `/` | Demo links |
+| `/demo-one` | Six recordings, reference media, and the live shader |
+| `/demo-two` | Reference media and the live shader |
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+Use the wind slider to change the wind. Select a reference thumbnail to switch between footage and derived maps. Select a recording to expand it; Escape closes it on desktop.
 
-## Workspace Auth Headers
+No API keys, account, database, or environment file are needed. Media is included in the repository; the initial clone is larger than a code-only project.
 
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
+## Run on your phone
 
-The user ID is stable for the same user on the same Site and different across Sites. Email and name are intended for display or contact purposes.
+**Native iPhone app — the complete phone experience:**
 
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
+1. On a Mac with Xcode 16 or newer, open `ios/GrassStudyFluidDemo/GrassStudyFluidDemo.xcodeproj`.
+2. Let Xcode resolve the pinned Wave package.
+3. Select the `GrassStudyFluidDemo` scheme and an iPhone simulator, then press **Run**.
+4. For a physical iPhone (iOS 17+), select your own Team under **Signing & Capabilities**, use a unique bundle identifier, and select your connected phone. Enable Developer Mode on the phone if Xcode requests it.
 
-Treat the full name as optional and fall back to email when it is absent:
+The app has three swipeable pages: recordings, reference media, and the shader. It runs offline after installation. You do **not** need to run the web server or install Node to launch the checked-in iPhone app.
 
-```tsx
-import { headers } from "next/headers";
+See [the iPhone guide](ios/README.md) for device setup, bundle updates, and troubleshooting.
 
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
+**Quick browser preview on a phone:**
 
-  const displayName = fullName ?? email;
-  // ...
-}
+```sh
+npm run dev:phone
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+Connect the computer and phone to the same trusted Wi-Fi network. Open `http://YOUR_COMPUTER_LAN_IP:5207/demo-two` on the phone. Use the computer's LAN address, not `localhost`. This is the responsive web comparison; the native app provides the dedicated full-screen paging experience. The server is reachable on your local network until you stop it with Ctrl+C.
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+## Work on the project
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Desktop development on port 5207 |
+| `npm run dev:phone` | Development accessible on your local network |
+| `npm run build` | Production web build |
+| `npm start` | Serve the production build on port 5207 |
+| `npm run typecheck` | TypeScript checks |
+| `npm run lint` | Source lint checks |
+| `npm test` | Build and test production routes and video delivery |
+| `npm run check` | Typecheck, lint, build, and tests |
+| `npm run ios:sync` | Build web source and refresh the bundled iPhone shader |
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+The web stack is React, TypeScript, and vinext/Vite. WebGL2 is required. Native presentation uses SwiftUI, AVPlayer, WKWebView, and Wave.
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+## Project map
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+- `app/OrnamentalGrass.tsx` — shader code, deterministic blade placement, wind, recordings, and interactions.
+- `app/globals.css` — web layout and presentation.
+- `app/demo-one/`, `app/demo-two/` — demo routes.
+- `public/` — footage, textures, and reference maps.
+- `ios/GrassStudyFluidDemo/` — native iPhone project and bundled web snapshot.
+- `ios/phone-overrides.css` — source CSS for the native shader page.
+- `scripts/` — production preview and iPhone bundle tooling.
+- `tests/` — production smoke tests.
+- [AGENTS.md](AGENTS.md) — setup, architecture, validation, and visual constraints for coding agents.
 
-## Useful Commands
+## Troubleshooting
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+- **Port 5207 is busy:** stop the earlier server or use `npm run dev -- -p 5208`.
+- **Videos are blank or stopped:** reload the tab, confirm the `.mp4` requests succeed, and keep the tab visible. Browsers may suspend background media.
+- **Shader is blank:** use a browser with WebGL2 and hardware acceleration enabled. Check its console for shader errors.
+- **Phone cannot reach the computer:** check the LAN IP, shared Wi-Fi, and firewall permission. Guest networks may isolate devices.
+- **Changes are missing from the iPhone app:** run `npm run ios:sync`, then rebuild in Xcode. The app does not load your dev server.
 
-## Learn More
+See [dependency maintenance notes](docs/DEPENDENCIES.md) for the remaining upstream audit advisories.
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+This repository contains the restored original grass study. Experimental Blender terrain replacements are not part of the running demo.

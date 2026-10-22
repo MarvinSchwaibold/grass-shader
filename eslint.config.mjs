@@ -23,6 +23,9 @@ const eslintConfig = defineConfig([
   jsxA11y.flatConfigs.recommended,
   next.configs["core-web-vitals"],
   {
+    // These are local reference assets and canvas-frame snapshots; routing them
+    // through Next image optimization would break offline native packaging.
+    rules: { "@next/next/no-img-element": "off" },
     languageOptions: {
       globals: {
         ...globals.browser,

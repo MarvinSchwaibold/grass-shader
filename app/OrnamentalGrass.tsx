@@ -1504,7 +1504,7 @@ function RecordingGridExperience() {
       startX: event.clientX,
       startY: event.clientY,
       axis: "pending",
-      samples: [{ x: event.clientX, y: event.clientY, time: performance.now() }],
+      samples: [{ x: event.clientX, y: event.clientY, time: event.timeStamp }],
     };
     setGridReleaseVelocity(0);
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -1518,7 +1518,7 @@ function RecordingGridExperience() {
     if (gesture.pointerId !== event.pointerId || gesture.index !== index) return;
     const deltaX = event.clientX - gesture.startX;
     const deltaY = event.clientY - gesture.startY;
-    const now = performance.now();
+    const now = event.timeStamp;
     gesture.samples.push({ x: event.clientX, y: event.clientY, time: now });
     while (gesture.samples.length > 2 && now - gesture.samples[0].time > 100) {
       gesture.samples.shift();
@@ -1631,7 +1631,7 @@ function RecordingGridExperience() {
       originY: clamp01((event.clientY - frame.y) / Math.max(frame.height, 1)),
       frame,
       axis: "pending",
-      samples: [{ x: event.clientX, y: event.clientY, time: performance.now() }],
+      samples: [{ x: event.clientX, y: event.clientY, time: event.timeStamp }],
     };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -1893,15 +1893,18 @@ export function OrnamentalGrass({
     depth: mobileDefaults.terrainDepth,
     showGrass: true,
   });
-  bladeLengths.current = {
-    overall: studyControls.blade.overall,
-    base: studyControls.blade.base,
-    mounds: studyControls.blade.length,
-  };
-  terrainControls.current = {
-    depth: studyControls.terrain.terrainDepth,
-    showGrass: studyControls.terrain.showGrass,
-  };
+  useEffect(() => {
+    bladeLengths.current = {
+      overall: studyControls.blade.overall,
+      base: studyControls.blade.base,
+      mounds: studyControls.blade.length,
+    };
+    terrainControls.current = {
+      depth: studyControls.terrain.terrainDepth,
+      showGrass: studyControls.terrain.showGrass,
+    };
+  }, [studyControls.blade.overall, studyControls.blade.base, studyControls.blade.length,
+    studyControls.terrain.terrainDepth, studyControls.terrain.showGrass]);
   const drag = useRef({
     active: false,
     left: 0,

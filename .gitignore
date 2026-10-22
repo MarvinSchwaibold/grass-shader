@@ -38,3 +38,18 @@ yarn-error.log*
 /.wrangler/
 /outputs/
 /work/
+
+# Local galleries and experimental Blender exports
+/.agents/
+/.numen/
+/numen.json
+/open-layer.json
+/public/grass-world/
+*.tsbuildinfo
+
+# Xcode local state and signing
+**/xcuserdata/
+**/*.xcuserstate
+/ios/DerivedData/
+*.mobileprovision
+*.p12

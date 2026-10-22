@@ -1,49 +1,68 @@
 {
-  "_framework-BgSIrAUN.js": {
-    "file": "_next/static/chunks/framework-BgSIrAUN.js",
-    "name": "framework",
+  "_C--se8fB.js": {
+    "file": "_next/static/chunks/C--se8fB.js",
+    "name": "vinext",
     "imports": [
-      "_rolldown-runtime-C60lm6uB.js"
+      "_XKyaHtl9.js",
+      "_CLvDmS2G.js"
+    ],
+    "dynamicImports": [
+      "_C--se8fB.js"
     ]
   },
-  "_rolldown-runtime-C60lm6uB.js": {
-    "file": "_next/static/chunks/rolldown-runtime-C60lm6uB.js",
+  "_CLvDmS2G.js": {
+    "file": "_next/static/chunks/CLvDmS2G.js",
+    "name": "framework",
+    "imports": [
+      "_XKyaHtl9.js"
+    ]
+  },
+  "_XKyaHtl9.js": {
+    "file": "_next/static/chunks/XKyaHtl9.js",
     "name": "rolldown-runtime"
   },
   "app/OrnamentalGrass.tsx": {
-    "file": "_next/static/chunks/OrnamentalGrass-BoYPxIx-.js",
+    "file": "_next/static/chunks/DDDfK_hY.js",
     "name": "OrnamentalGrass",
     "src": "app/OrnamentalGrass.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_rolldown-runtime-C60lm6uB.js",
-      "_framework-BgSIrAUN.js"
+      "_XKyaHtl9.js",
+      "_CLvDmS2G.js"
     ]
   },
   "node_modules/vinext/dist/shims/layout-segment-context.js": {
-    "file": "_next/static/chunks/layout-segment-context-CxVnUDco.js",
+    "file": "_next/static/chunks/DFqxsIZv.js",
     "name": "layout-segment-context",
     "src": "node_modules/vinext/dist/shims/layout-segment-context.js",
     "isDynamicEntry": true,
     "imports": [
-      "_rolldown-runtime-C60lm6uB.js",
-      "virtual:vinext-app-browser-entry",
-      "_framework-BgSIrAUN.js"
+      "_XKyaHtl9.js",
+      "_CLvDmS2G.js",
+      "_C--se8fB.js"
     ]
   },
   "virtual:vinext-app-browser-entry": {
-    "file": "_next/static/chunks/index-BYAkxFpy.js",
+    "file": "_next/static/chunks/Dz5y-Dw9.js",
     "name": "index",
     "src": "virtual:vinext-app-browser-entry",
     "isEntry": true,
     "imports": [
-      "_rolldown-runtime-C60lm6uB.js",
-      "_framework-BgSIrAUN.js"
+      "_XKyaHtl9.js",
+      "_CLvDmS2G.js",
+      "_C--se8fB.js"
     ],
     "dynamicImports": [
-      "virtual:vinext-app-browser-entry",
+      "_C--se8fB.js",
       "node_modules/vinext/dist/shims/layout-segment-context.js",
-      "app/OrnamentalGrass.tsx"
+      "app/OrnamentalGrass.tsx",
+      "virtual:vinext-app-route-manifest"
     ]
+  },
+  "virtual:vinext-app-route-manifest": {
+    "file": "_next/static/chunks/o1JlgIV9.js",
+    "name": "_virtual_vinext-app-route-manifest",
+    "src": "virtual:vinext-app-route-manifest",
+    "isDynamicEntry": true
   }
 }
